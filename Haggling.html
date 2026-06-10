@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immersive Haggle Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Almendra:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --shop-bg-dark: #1a0f0a;
+            --shop-bg-light: #3d2416;
+            --wood-primary: #4a2b1a;
+            --wood-highlight: #6e4225;
+            --wood-shadow: #24140b;a
+            --gold: #d4af37;
+            --magic-blue: #4facfe;
+            --patience-red: #ff4b4b;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Almendra', serif;
+            background: radial-gradient(circle at 50% 40%, var(--shop-bg-light), var(--shop-bg-dark) 80%);
+            color: #f0e6d2;
+            user-select: none;
+            height: 100vh;
+        }
+
+        /* Background Scenery */
+        .shop-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -2;
+            background-image: 
+                linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.8)),
+                url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="%232c1810"/><path d="M0 20 h100 M0 50 h100 M0 80 h100" stroke="%231a0e09" stroke-width="2"/></svg>');
+            background-size: cover, 200px 200px;
+        }
+
+        .dust-particles {
+            position: absolute;
+            width: 100%; height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            background-image: radial-gradient(circle at center, rgba(255, 220, 150, 0.15) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: drift 60s linear infinite;
+        }
+
+        @keyframes drift {
+            0% { background-position: 0 0; }
+            100% { background-position: 500px 500px; }
+        }
+
+        /* The Counter */
+        .counter-top {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 40vh;
+            background: linear-gradient(to bottom, var(--wood-highlight), var(--wood-primary), var(--wood-shadow));
+            border-top: 6px solid var(--wood-shadow);
+            z-index: 5;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        /* Decorative UI Elements */
+        .wood-plank {
+            background: linear-gradient(to bottom, #5c3a21, #3a2212);
+            border: 3px solid #24140b;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 5px 15px rgba(0,0,0,0.8);
+            position: relative;
+        }
+        
+        .wood-plank::before {
+            content: '';
+            position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 1px dashed rgba(255,255,255,0.2);
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        .hanging-sign {
+            position: absolute;
+            top: -20px;
+            transform-origin: top center;
+            animation: swing 6s ease-in-out infinite alternate;
+        }
+
+        @keyframes swing {
+            0% { transform: rotate(2deg); }
+            100% { transform: rotate(-2deg); }
+        }
+
+        .chain {
+            width: 4px; height: 30px;
+            background: #555;
+            position: absolute; top: -30px;
+            box-shadow: 1px 1px 2px black;
+        }
+
+        /* Character Animations */
+        .character-container {
+            position: absolute;
+            bottom: 35vh; /* Stand behind counter */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 4;
+            width: 400px;
+            height: 500px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        #customer-svg {
+            width: 100%;
+            height: 100%;
+            transform-origin: bottom center;
+            animation: breathe 4s ease-in-out infinite;
+            filter: drop-shadow(0 15px 25px rgba(0,0,0,0.6));
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: scaleY(1) scaleX(1); }
+            50% { transform: scaleY(1.02) scaleX(0.99); }
+        }
+
+        .anim-angry {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px) rotate(-2deg); }
+            40%, 80% { transform: translateX(10px) rotate(2deg); }
+        }
+
+        .anim-happy {
+            animation: bounce 0.6s ease-out both;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-30px); }
+        }
+
+        /* Potion Vial (Patience) */
+        .vial-container {
+            position: absolute;
+            left: 10%;
+            top: 20%;
+            width: 80px;
+            height: 300px;
+            z-index: 10;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5));
+        }
+
+        .vial-glass {
+            position: absolute;
+            inset: 0;
+            border: 6px solid rgba(255, 255, 255, 0.3);
+            border-radius: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: inset 10px 0 20px rgba(255,255,255,0.2), inset -10px 0 20px rgba(0,0,0,0.4);
+            overflow: hidden;
+            border-top-width: 15px;
+            border-top-color: #4a2b1a; /* Cork */
+        }
+
+        .vial-liquid {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 100%;
+            background: linear-gradient(to top, #b91c1c, #ef4444);
+            transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: inset 0 10px 10px rgba(255,255,255,0.3);
+        }
+
+        .vial-liquid::after {
+            content: '';
+            position: absolute;
+            top: -5px; left: 0; right: 0;
+            height: 10px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 50%;
+        }
+
+        .bubbles {
+            position: absolute; bottom: 0; width: 100%; height: 100%;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.6) 2px, transparent 2px);
+            background-size: 20px 30px;
+            animation: bubble-rise 3s linear infinite;
+        }
+
+        @keyframes bubble-rise {
+            0% { background-position: 0 100%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { background-position: 0 0; opacity: 0; }
+        }
+
+        /* Prices UI */
+        .price-board {
+            position: absolute;
+            right: 10%;
+            top: 25%;
+            width: 250px;
+            z-index: 10;
+        }
+
+        /* Cards & Hand */
+        .hand-area {
+            position: absolute;
+            bottom: -20px; /* Slight tuck */
+            left: 0; right: 0;
+            height: 30vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            z-index: 20;
+            perspective: 1000px;
+            padding-bottom: 20px;
+        }
+
+        .playing-card {
+            width: 160px;
+            height: 240px;
+            background: #f4e8d2;
+            border-radius: 12px;
+            border: 4px solid #b89972;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4), inset 0 0 40px rgba(139, 90, 43, 0.3);
+            margin: 0 -15px; /* Overlap */
+            position: relative;
+            transform-origin: bottom center;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s, z-index 0s;
+            cursor: pointer;
+            display: flex;
+            flex-col;
+            font-family: 'Cinzel', serif;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)" opacity="0.15"/></svg>');
+        }
+
+        .playing-card:hover {
+            transform: translateY(-40px) scale(1.1) rotate(0deg) !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 20px var(--gold);
+            z-index: 30 !important;
+        }
+
+        .playing-card.disabled {
+            filter: grayscale(80%) brightness(0.7);
+            pointer-events: none;
+        }
+
+        .card-ap-cost {
+            position: absolute;
+            top: -15px; left: -15px;
+            width: 45px; height: 45px;
+            background: radial-gradient(circle at 30% 30%, #60a5fa, #1e3a8a);
+            border: 3px solid #fbbf24;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px black;
+        }
+
+        .card-inner {
+            border: 2px solid rgba(139, 90, 43, 0.5);
+            margin: 6px;
+            height: calc(100% - 12px);
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .card-art {
+            height: 40%;
+            background: #e6d5b8;
+            border: 2px solid #b89972;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+        }
+
+        /* Floating text effects */
+        .float-text {
+            position: absolute;
+            font-family: 'Cinzel', serif;
+            font-weight: bold;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 4px black, 0 0 10px black;
+            pointer-events: none;
+            z-index: 100;
+            animation: floatUp 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            20% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-80px) scale(1); opacity: 0; }
+        }
+
+        /* UI Overlays */
+        .ap-orb {
+            width: 100px; height: 100px;
+            background: radial-gradient(circle at 30% 30%, #93c5fd, #2563eb, #1e3a8a);
+            border-radius: 50%;
+            border: 4px solid var(--gold);
+            box-shadow: 0 0 30px rgba(37, 99, 235, 0.6), inset 0 0 20px white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: bold;
+            font-family: 'Cinzel', serif;
+            color: white;
+            text-shadow: 0 2px 5px black;
+            position: absolute;
+            bottom: 25vh;
+            left: 5%;
+            z-index: 10;
+        }
+
+        .deck-pile, .discard-pile {
+            position: absolute;
+            bottom: 5vh;
+            width: 100px; height: 140px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+            font-family: 'Cinzel', serif;
+            z-index: 10;
+        }
+        
+        .deck-pile {
+            left: 5%;
+            background: linear-gradient(135deg, #4a2b1a, #24140b);
+            border: 3px solid #b89972;
+            box-shadow: -5px 5px 0 #1a0f0a, -10px 10px 0 #1a0f0a, 0 15px 20px rgba(0,0,0,0.5);
+        }
+
+        .discard-pile {
+            right: 5%;
+            background: rgba(0,0,0,0.4);
+            border: 2px dashed #b89972;
+            opacity: 0.8;
+        }
+
+        #end-turn-btn {
+            position: absolute;
+            right: 5%;
+            bottom: 25vh;
+            background: linear-gradient(to bottom, #d97706, #92400e);
+            border: 3px solid var(--gold);
+            font-family: 'Cinzel', serif;
+            text-shadow: 1px 1px 2px black;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.6), inset 0 2px 5px rgba(255,255,255,0.4);
+            z-index: 10;
+        }
+        #end-turn-btn:hover { background: linear-gradient(to bottom, #f59e0b, #b45309); transform: scale(1.05); }
+        #end-turn-btn:active { transform: scale(0.95); }
+
+    </style>
+</head>
+<body>
+
+<!-- Background Scenery -->
+<div class="shop-bg"></div>
+<div class="dust-particles"></div>
+
+<div id="game-ui" class="w-full h-full relative hidden">
+    
+    <!-- Character Layer -->
+    <div class="character-container" id="character-wrapper">
+        <!-- SVG Grumpy Rogue -->
+        <svg id="customer-svg" viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg">
+            <!-- Shadow -->
+            <ellipse cx="200" cy="480" rx="150" ry="20" fill="rgba(0,0,0,0.5)" />
+            
+            <!-- Body/Cloak -->
+            <path id="cloak" d="M100 480 C 100 250, 140 180, 200 180 C 260 180, 300 250, 300 480 Z" fill="#2d3748" stroke="#1a202c" stroke-width="4"/>
+            <path d="M140 180 Q 200 250 260 180" fill="none" stroke="#1a202c" stroke-width="4"/>
+            
+            <!-- Scarf/Collar -->
+            <path d="M150 220 Q 200 260 250 220 L 260 250 Q 200 290 140 250 Z" fill="#742a2a" stroke="#451a1a" stroke-width="3"/>
+
+            <!-- Head -->
+            <circle cx="200" cy="150" r="60" fill="#fbd38d" stroke="#c05621" stroke-width="3"/>
+            
+            <!-- Hood Overlay -->
+            <path d="M120 150 C 120 50, 280 50, 280 150 C 280 180, 250 200, 200 200 C 150 200, 120 180, 120 150 Z" fill="#1a202c"/>
+            
+            <!-- Eyes (Grouped for expression changes) -->
+            <g id="eyes-group">
+                <!-- Eyebrows (Angry by default) -->
+                <path id="eyebrow-l" d="M160 120 L 185 135" stroke="#4a5568" stroke-width="6" stroke-linecap="round"/>
+                <path id="eyebrow-r" d="M240 120 L 215 135" stroke="#4a5568" stroke-width="6" stroke-linecap="round"/>
+                <!-- Eyes -->
+                <circle cx="175" cy="145" r="5" fill="#1a202c"/>
+                <circle cx="225" cy="145" r="5" fill="#1a202c"/>
+            </g>
+
+            <!-- Mouth -->
+            <path id="mouth" d="M185 170 Q 200 165 215 170" fill="none" stroke="#2d3748" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+    </div>
+
+    <!-- UI Elements Background (Counter) -->
+    <div class="counter-top"></div>
+
+    <!-- Potion Vial (Patience) -->
+    <div class="vial-container wood-plank p-2 hanging-sign" style="top: 15%;">
+        <div class="chain" style="left: 20px;"></div>
+        <div class="chain" style="right: 20px;"></div>
+        <div class="text-center font-bold text-gray-300 mb-2 font-sans tracking-widest text-sm z-20 relative">PATIENCE</div>
+        <div class="relative w-full h-[220px]">
+            <div class="vial-glass">
+                <div id="patience-fill" class="vial-liquid" style="height: 100%;">
+                    <div class="bubbles"></div>
+                </div>
+            </div>
+            <!-- Marker Overlay -->
+            <div class="absolute inset-0 flex flex-col justify-between py-4 opacity-50 pointer-events-none z-10">
+                <div class="w-full border-t-2 border-white"></div>
+                <div class="w-full border-t-2 border-white"></div>
+                <div class="w-full border-t-2 border-white"></div>
+                <div class="w-full border-t-2 border-white"></div>
+            </div>
+        </div>
+        <div id="patience-text" class="text-center font-bold text-white mt-2 text-xl z-20 relative text-shadow">20/20</div>
+    </div>
+
+    <!-- Price Board -->
+    <div class="price-board wood-plank p-4 hanging-sign" style="animation-delay: -3s;">
+        <div class="chain" style="left: 30px;"></div>
+        <div class="chain" style="right: 30px;"></div>
+        
+        <div class="text-center border-b-2 border-[#24140b] pb-3 mb-3">
+            <h3 class="text-xl text-[#d4af37] mb-1 font-bold">Target Price</h3>
+            <div class="text-4xl font-bold text-white flex justify-center items-center gap-2" id="target-price-display">
+                150 <span class="text-yellow-400 text-2xl">💰</span>
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <h3 class="text-xl text-[#a3a3a3] mb-1">Current Offer</h3>
+            <div class="text-5xl font-bold text-green-400 flex justify-center items-center gap-2 drop-shadow-[0_0_10px_rgba(74,222,128,0.5)]" id="current-price-display">
+                100 <span class="text-yellow-400 text-3xl">💰</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Points Orb -->
+    <div class="ap-orb" id="ap-display">3</div>
+    <div class="absolute text-center text-blue-200 font-bold z-10 text-xl tracking-widest drop-shadow-md" style="bottom: 21vh; left: 6.5%;">ENERGY</div>
+
+    <!-- Deck & Discard -->
+    <div class="deck-pile" id="deck-count">10</div>
+    <div class="absolute text-gray-400 text-sm z-10 bottom-[2vh] left-[6.5%] font-bold">DECK</div>
+    
+    <div class="discard-pile" id="discard-count">0</div>
+    <div class="absolute text-gray-400 text-sm z-10 bottom-[2vh] right-[6.5%] font-bold">DISCARD</div>
+
+    <button id="end-turn-btn" class="text-white font-bold py-4 px-8 rounded-full text-2xl transition-all duration-200">
+        End Turn
+    </button>
+
+    <!-- Center Status Message -->
+    <div class="absolute inset-0 flex justify-center items-center pointer-events-none z-50">
+        <div id="status-message" class="text-5xl font-bold text-center text-yellow-300 bg-black bg-opacity-70 px-10 py-4 rounded-xl opacity-0 transition-opacity duration-300 transform scale-150 border-2 border-yellow-600 font-serif">
+            Player Turn
+        </div>
+    </div>
+
+    <!-- The Hand -->
+    <div id="player-hand" class="hand-area">
+        <!-- Cards injected via JS -->
+    </div>
+</div>
+
+<!-- START & END SCREENS -->
+<div id="start-screen" class="fixed inset-0 bg-[#1a0f0a] flex flex-col items-center justify-center z-50 bg-opacity-95 backdrop-blur-sm">
+    <h1 class="text-7xl font-bold text-[#d4af37] mb-2 drop-shadow-[0_0_20px_rgba(212,175,55,0.6)] font-serif tracking-wider">Potionomics</h1>
+    <h2 class="text-4xl font-semibold text-gray-300 mb-12 font-serif italic">Haggle Simulator</h2>
+    
+    <div class="wood-plank p-10 max-w-2xl text-center mb-12 text-gray-200 text-xl leading-relaxed">
+        <p class="mb-4">Welcome to your shop, Merchant. A customer approaches.</p>
+        <p class="mb-4">Play cards from your hand to raise your <strong>Current Offer</strong> to meet their <strong>Target Price</strong>.</p>
+        <p class="mb-4 text-red-400">Beware: Pushing too hard reduces their <strong>Patience</strong>. If it empties, they walk!</p>
+        <p class="text-blue-300">Cards cost <strong>Energy</strong>. Manage it wisely.</p>
+    </div>
+
+    <button id="start-btn" class="bg-gradient-to-b from-green-600 to-green-900 hover:from-green-500 hover:to-green-800 text-white font-bold py-4 px-16 rounded-full text-3xl border-4 border-[#d4af37] shadow-[0_0_30px_rgba(34,197,94,0.4)] transition-transform hover:scale-105 active:scale-95 font-serif">
+        Open Shop
+    </button>
+</div>
+
+<div id="end-screen" class="fixed inset-0 bg-black bg-opacity-95 flex flex-col items-center justify-center z-50 hidden backdrop-blur-md">
+    <h1 id="end-title" class="text-7xl font-bold text-white mb-6 font-serif tracking-widest">Result</h1>
+    <div class="wood-plank p-8 mb-10 text-center">
+        <p id="end-desc" class="text-3xl text-gray-300 font-serif">Details here</p>
+    </div>
+    <button id="restart-btn" class="bg-gradient-to-b from-blue-600 to-blue-900 hover:from-blue-500 hover:to-blue-800 text-white font-bold py-4 px-12 rounded-full text-2xl border-4 border-blue-400 shadow-[0_0_25px_rgba(59,130,246,0.6)] transition-transform hover:scale-105 active:scale-95 font-serif">
+        Next Customer
+    </button>
+</div>
+
+<script>
+    // --- SVG Icons for Cards ---
+    const ICONS = {
+        offense: `<svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2" class="w-12 h-12 drop-shadow-md"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" fill="#fca5a5"/></svg>`,
+        utility: `<svg viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" class="w-12 h-12 drop-shadow-md"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" fill="#6ee7b7"/></svg>`,
+        draw: `<svg viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" class="w-12 h-12 drop-shadow-md"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" fill="#93c5fd"/></svg>`
+    };
+
+    // --- Game Data & State ---
+    const CARD_TYPES = {
+        PITCH: {
+            id: 'pitch', name: 'Pitch', cost: 1, patienceCost: 2, type: 'Offense',
+            description: 'Increase offer by 15.', play: (s) => { s.currentPrice += 15; },
+            color: 'text-red-900', icon: ICONS.offense
+        },
+        COMPLIMENT: {
+            id: 'compliment', name: 'Compliment', cost: 1, patienceCost: 0, type: 'Utility',
+            description: 'Restore 4 Patience.', play: (s) => { s.patience = Math.min(s.maxPatience, s.patience + 4); },
+            color: 'text-green-900', icon: ICONS.utility
+        },
+        HARD_SELL: {
+            id: 'hard_sell', name: 'Hard Sell', cost: 2, patienceCost: 6, type: 'Offense',
+            description: 'Increase offer by 30.', play: (s) => { s.currentPrice += 30; },
+            color: 'text-orange-900', icon: ICONS.offense
+        },
+        THINK: {
+            id: 'think', name: 'Think', cost: 1, patienceCost: 1, type: 'Utility',
+            description: 'Draw 2 cards.', play: (s) => { drawCards(2); },
+            color: 'text-blue-900', icon: ICONS.draw
+        },
+        SYMPATHIZE: {
+            id: 'sympathize', name: 'Sympathize', cost: 0, patienceCost: 0, type: 'Utility',
+            description: 'Increase offer by 5 for free.', play: (s) => { s.currentPrice += 5; },
+            color: 'text-purple-900', icon: ICONS.utility
+        }
+    };
+
+    const STARTING_DECK = [
+        CARD_TYPES.PITCH, CARD_TYPES.PITCH, CARD_TYPES.PITCH, CARD_TYPES.PITCH,
+        CARD_TYPES.COMPLIMENT, CARD_TYPES.COMPLIMENT,
+        CARD_TYPES.HARD_SELL,
+        CARD_TYPES.THINK, CARD_TYPES.THINK,
+        CARD_TYPES.SYMPATHIZE
+    ];
+
+    let state = {
+        targetPrice: 150, currentPrice: 100, maxPatience: 20, patience: 20,
+        maxAp: 3, ap: 3, deck: [], hand: [], discard: [],
+        isGameOver: false, turnNumber: 1
+    };
+
+    // --- DOM Elements ---
+    const els = {
+        screens: { start: document.getElementById('start-screen'), game: document.getElementById('game-ui'), end: document.getElementById('end-screen') },
+        displays: { targetPrice: document.getElementById('target-price-display'), currentPrice: document.getElementById('current-price-display'),
+                    patienceText: document.getElementById('patience-text'), patienceFill: document.getElementById('patience-fill'),
+                    ap: document.getElementById('ap-display'), deckCount: document.getElementById('deck-count'),
+                    discardCount: document.getElementById('discard-count'), statusMessage: document.getElementById('status-message') },
+        containers: { hand: document.getElementById('player-hand'), character: document.getElementById('character-wrapper') },
+        svg: { mouth: document.getElementById('mouth'), eyebrowsL: document.getElementById('eyebrow-l'), eyebrowsR: document.getElementById('eyebrow-r') },
+        buttons: { start: document.getElementById('start-btn'), endTurn: document.getElementById('end-turn-btn'), restart: document.getElementById('restart-btn') },
+        endData: { title: document.getElementById('end-title'), desc: document.getElementById('end-desc') }
+    };
+
+    // --- Core Logic ---
+    function initGame() {
+        state = {
+            targetPrice: Math.floor(Math.random() * 60) + 140,
+            currentPrice: 80 + Math.floor(Math.random() * 20),
+            maxPatience: 20, patience: 20, maxAp: 3, ap: 3,
+            deck: [...STARTING_DECK], hand: [], discard: [],
+            isGameOver: false, turnNumber: 1
+        };
+        shuffleDeck(state.deck);
+        els.screens.start.classList.add('hidden');
+        els.screens.end.classList.add('hidden');
+        els.screens.game.classList.remove('hidden');
+        setExpression('neutral');
+        startTurn();
+    }
+
+    function shuffleDeck(deckArray) {
+        for (let i = deckArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deckArray[i], deckArray[j]] = [deckArray[j], deckArray[i]];
+        }
+    }
+
+    function drawCards(num) {
+        for (let i = 0; i < num; i++) {
+            if (state.deck.length === 0) {
+                if (state.discard.length === 0) break;
+                state.deck = [...state.discard];
+                state.discard = [];
+                shuffleDeck(state.deck);
+                showStatus("Deck Reshuffled", "text-blue-300");
+            }
+            if (state.hand.length >= 7) break;
+            state.hand.push({ ...state.deck.pop(), instanceId: Math.random().toString(36).substr(2, 9) });
+        }
+        updateUI();
+    }
+
+    function startTurn() {
+        state.ap = state.maxAp;
+        while(state.hand.length > 0) state.discard.push(state.hand.pop());
+        showStatus(`Turn ${state.turnNumber}`, "text-yellow-300");
+        setTimeout(() => { drawCards(5); }, 500); // Slight delay for feel
+        updateUI();
+    }
+
+    function endTurn() {
+        if (state.isGameOver) return;
+        state.turnNumber++;
+        // Enemy turn simulation: slight random patience drain or price drop to add pressure
+        const event = Math.random();
+        if(event > 0.6) {
+            state.patience -= 1;
+            createFloatingText(els.displays.patienceText, "-1", true);
+            triggerCharAnim('anim-angry');
+        }
+        startTurn();
+        checkWinLoss();
+    }
+
+    function playCard(cardIndex, domElement) {
+        if (state.isGameOver) return;
+        const card = state.hand[cardIndex];
+        if (state.ap < card.cost) return;
+
+        // Visual play animation (fly up slightly before disappearing)
+        domElement.style.transform = 'translateY(-100px) scale(1.2)';
+        domElement.style.opacity = '0';
+        domElement.style.pointerEvents = 'none';
+
+        setTimeout(() => {
+            state.ap -= card.cost;
+            state.patience -= card.patienceCost;
+            
+            const oldPrice = state.currentPrice;
+            const oldPatience = state.patience;
+            card.play(state);
+
+            // Price Feedback
+            if (state.currentPrice > oldPrice) {
+                createFloatingText(els.displays.currentPrice, `+${state.currentPrice - oldPrice}`, false, "text-green-400");
+                triggerShake(els.displays.currentPrice.parentElement);
+            }
+            // Patience Feedback & Character Reaction
+            if (state.patience < oldPatience) {
+                 createFloatingText(els.displays.patienceText, `-${oldPatience - state.patience}`, true, "text-red-400");
+                 triggerCharAnim('anim-angry');
+                 setExpression('angry');
+                 setTimeout(() => setExpression('neutral'), 1500);
+            } else if (state.patience > oldPatience) {
+                 createFloatingText(els.displays.patienceText, `+${state.patience - oldPatience}`, false, "text-green-400");
+                 triggerCharAnim('anim-happy');
+                 setExpression('happy');
+                 setTimeout(() => setExpression('neutral'), 1500);
+            }
+
+            state.hand.splice(cardIndex, 1);
+            state.discard.push(card);
+            
+            updateUI();
+            checkWinLoss();
+        }, 150); // wait for card animation
+    }
+
+    // --- UI Updating & Visuals ---
+    function updateUI() {
+        els.displays.targetPrice.innerHTML = `${state.targetPrice} <span class="text-yellow-400 text-2xl">💰</span>`;
+        els.displays.currentPrice.innerHTML = `${state.currentPrice} <span class="text-yellow-400 text-3xl">💰</span>`;
+        
+        // AP Orb animation
+        els.displays.ap.innerText = state.ap;
+        if(state.ap === 0) els.displays.ap.style.filter = "grayscale(80%)";
+        else els.displays.ap.style.filter = "none";
+        
+        // Patience Vial
+        els.displays.patienceText.innerText = `${Math.max(0, state.patience)}/${state.maxPatience}`;
+        const patiencePercent = Math.max(0, (state.patience / state.maxPatience) * 100);
+        els.displays.patienceFill.style.height = `${patiencePercent}%`;
+        
+        if (patiencePercent < 30) {
+            els.displays.patienceFill.style.background = "linear-gradient(to top, #7f1d1d, #b91c1c)"; // Darker red, almost empty
+            els.displays.patienceText.classList.add("text-red-500");
+            els.displays.patienceText.classList.add("animate-pulse");
+            setExpression('angry'); // Stay angry if low
+        } else {
+            els.displays.patienceFill.style.background = "linear-gradient(to top, #b91c1c, #ef4444)";
+            els.displays.patienceText.classList.remove("text-red-500");
+            els.displays.patienceText.classList.remove("animate-pulse");
+        }
+
+        els.displays.deckCount.innerText = state.deck.length;
+        els.displays.discardCount.innerText = state.discard.length;
+
+        renderHand();
+    }
+
+    function renderHand() {
+        els.containers.hand.innerHTML = '';
+        const totalCards = state.hand.length;
+        
+        state.hand.forEach((card, index) => {
+            const canPlay = state.ap >= card.cost;
+            const cardEl = document.createElement('div');
+            cardEl.className = `playing-card ${!canPlay ? 'disabled' : ''}`;
+            
+            // Fanning effect math
+            const angle = (index - (totalCards - 1) / 2) * 5;
+            const yOffset = Math.abs(index - (totalCards - 1) / 2) * 10;
+            cardEl.style.transform = `rotate(${angle}deg) translateY(${yOffset}px)`;
+            cardEl.style.zIndex = index;
+
+            cardEl.innerHTML = `
+                <div class="card-ap-cost">${card.cost}</div>
+                <div class="card-inner bg-opacity-90 bg-[#f4e8d2]">
+                    <div class="card-art">
+                        ${card.icon}
+                    </div>
+                    <div class="text-center font-bold text-lg mb-1 border-b border-gray-400 pb-1 ${card.color}">${card.name}</div>
+                    <div class="text-xs text-center text-gray-500 mb-2 uppercase font-sans">${card.type}</div>
+                    <div class="text-sm flex-grow text-gray-800 leading-tight">${card.description}</div>
+                    <div class="text-xs font-bold text-right mt-auto ${card.patienceCost > 0 ? 'text-red-600' : 'text-transparent'}">
+                        ${card.patienceCost > 0 ? `- ${card.patienceCost} Pat` : '0'}
+                    </div>
+                </div>
+            `;
+
+            if (canPlay) {
+                cardEl.addEventListener('click', () => playCard(index, cardEl));
+                // Fix z-index on hover for fanned cards
+                cardEl.addEventListener('mouseenter', () => { cardEl.style.zIndex = 50; });
+                cardEl.addEventListener('mouseleave', () => { cardEl.style.zIndex = index; });
+            }
+
+            els.containers.hand.appendChild(cardEl);
+        });
+    }
+
+    // --- Animations & Feedback ---
+    function triggerCharAnim(animClass) {
+        const charEl = els.containers.character;
+        charEl.classList.remove('anim-angry', 'anim-happy');
+        void charEl.offsetWidth; // reflow
+        charEl.classList.add(animClass);
+    }
+
+    function setExpression(mood) {
+        if (mood === 'angry') {
+            els.svg.mouth.setAttribute('d', 'M185 175 Q 200 160 215 175'); // Frown
+            els.svg.eyebrowsL.setAttribute('d', 'M160 120 L 185 135'); // Angled in
+            els.svg.eyebrowsR.setAttribute('d', 'M240 120 L 215 135'); // Angled in
+        } else if (mood === 'happy') {
+            els.svg.mouth.setAttribute('d', 'M185 165 Q 200 180 215 165'); // Smile
+            els.svg.eyebrowsL.setAttribute('d', 'M160 130 L 185 125'); // Raised
+            els.svg.eyebrowsR.setAttribute('d', 'M240 130 L 215 125'); // Raised
+        } else { // Neutral
+            els.svg.mouth.setAttribute('d', 'M185 170 Q 200 170 215 170'); // Flat
+            els.svg.eyebrowsL.setAttribute('d', 'M160 125 L 185 125'); // Flat
+            els.svg.eyebrowsR.setAttribute('d', 'M240 125 L 215 125'); // Flat
+        }
+    }
+
+    function createFloatingText(targetEl, text, isNegative, colorClass) {
+        const rect = targetEl.getBoundingClientRect();
+        const floatEl = document.createElement('div');
+        floatEl.className = `float-text ${colorClass}`;
+        floatEl.innerText = text;
+        
+        // Randomize position slightly
+        const offsetX = (Math.random() - 0.5) * 40;
+        floatEl.style.left = `${rect.left + rect.width / 2 + offsetX}px`;
+        floatEl.style.top = `${rect.top}px`;
+        
+        document.body.appendChild(floatEl);
+        setTimeout(() => floatEl.remove(), 1200);
+    }
+
+    let statusTimeout;
+    function showStatus(msg, colorClass = "text-yellow-300") {
+        const el = els.displays.statusMessage;
+        el.innerText = msg;
+        el.className = `text-5xl font-bold text-center bg-black bg-opacity-70 px-10 py-4 rounded-xl transition-all duration-300 transform border-2 border-yellow-600 font-serif ${colorClass}`;
+        
+        // Pop in
+        requestAnimationFrame(() => {
+            el.style.opacity = '1';
+            el.style.transform = 'scale(1)';
+        });
+        
+        clearTimeout(statusTimeout);
+        statusTimeout = setTimeout(() => {
+            el.style.opacity = '0';
+            el.style.transform = 'scale(1.5)'; // Fade out and up
+        }, 1200);
+    }
+
+    function triggerShake(element) {
+        element.animate([
+            { transform: 'translate(1px, 1px) rotate(0deg)' },
+            { transform: 'translate(-1px, -2px) rotate(-1deg)' },
+            { transform: 'translate(-3px, 0px) rotate(1deg)' },
+            { transform: 'translate(3px, 2px) rotate(0deg)' },
+            { transform: 'translate(1px, -1px) rotate(1deg)' },
+            { transform: 'translate(-1px, 2px) rotate(-1deg)' },
+            { transform: 'translate(0px, 0px) rotate(0deg)' }
+        ], { duration: 300, iterations: 1 });
+    }
+
+    function checkWinLoss() {
+        if (state.currentPrice >= state.targetPrice) {
+            setTimeout(() => endGame(true), 500); // Let animations finish
+        } else if (state.patience <= 0) {
+            setTimeout(() => endGame(false), 500);
+        }
+    }
+
+    function endGame(isWin) {
+        state.isGameOver = true;
+        els.screens.end.classList.remove('hidden');
+
+        if (isWin) {
+            triggerCharAnim('anim-happy');
+            setExpression('happy');
+            els.endData.title.innerText = "Deal Closed!";
+            els.endData.title.className = "text-7xl font-bold text-green-400 mb-6 drop-shadow-[0_0_20px_rgba(74,222,128,0.8)] font-serif";
+            els.endData.desc.innerHTML = `Excellent haggling! Sold for <span class="text-yellow-400 font-bold">${state.currentPrice} 💰</span>!`;
+        } else {
+            triggerCharAnim('anim-angry');
+            setExpression('angry');
+            els.endData.title.innerText = "Customer Left!";
+            els.endData.title.className = "text-7xl font-bold text-red-500 mb-6 drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] font-serif";
+            els.endData.desc.innerHTML = `You ran out of patience. They wanted <span class="text-yellow-400">${state.targetPrice} 💰</span>.`;
+        }
+    }
+
+    // --- Event Listeners ---
+    els.buttons.start.addEventListener('click', initGame);
+    els.buttons.endTurn.addEventListener('click', endTurn);
+    els.buttons.restart.addEventListener('click', initGame);
+
+</script>
+</body>
+</html>
