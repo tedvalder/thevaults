@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shipper Thả Hàng Siêu Cấp - Physics Drop Stacker</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Google -->
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Quicksand', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .font-game {
+      font-family: 'Fredoka One', cursive;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+  <!-- Header Panel -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 shadow-lg">
+    <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-game text-amber-400 tracking-wider flex items-center gap-2 text-shadow-md">
+          🚚 SHIPPER THẢ HÀNG <span class="text-xs bg-emerald-500 text-white px-2 py-1 rounded-full font-sans uppercase animate-pulse">Easy & Big Stickers</span>
+        </h1>
+      </div>
+
+      <!-- Stats Panel -->
+      <div class="flex items-center gap-4 md:gap-6 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700">
+        <div class="text-center">
+          <span class="block text-[10px] text-slate-400 uppercase font-bold">Màn Chơi</span>
+          <span id="level-badge" class="text-lg font-game text-emerald-400">1 / 3</span>
+        </div>
+        <div class="h-8 w-[1px] bg-slate-700"></div>
+        <div class="text-center">
+          <span class="block text-[10px] text-slate-400 uppercase font-bold">Tiền Giao Hàng</span>
+          <span id="ship-fee" class="text-lg font-game text-yellow-400">$40</span>
+        </div>
+        <div class="h-8 w-[1px] bg-slate-700"></div>
+        <div class="text-center">
+          <span class="block text-[10px] text-slate-400 uppercase font-bold">Số Sao (Sẹo)</span>
+          <div id="stars-container" class="flex gap-1 text-lg text-yellow-400">
+            ⭐⭐⭐
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Game Area -->
+  <main class="flex-grow flex flex-col items-center justify-center p-2 md:p-4 max-w-6xl w-full mx-auto">
+    
+    <!-- Game Indicators & Tips -->
+    <div class="w-full flex justify-between items-center max-w-4xl mb-2 text-xs text-slate-400 px-2">
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-1">🧭 <span class="font-semibold text-slate-200">Gió:</span> <span id="wind-text" class="text-cyan-400 font-bold">0 km/h</span></span>
+        <span class="flex items-center gap-1">🔥 <span class="font-semibold text-slate-200">Combo:</span> <span id="combo-text" class="text-orange-400 font-bold">x0</span></span>
+      </div>
+      <div>
+        <span>💡 Nhìn tia định vị đứt nét để thả chính xác hơn nhé!</span>
+      </div>
+    </div>
+
+    <!-- Canvas Container -->
+    <div class="relative bg-slate-950 rounded-2xl border-4 border-slate-700 shadow-2xl overflow-hidden w-full max-w-4xl aspect-[16/10] lg:aspect-[16/9]">
+      <canvas id="gameCanvas" class="absolute top-0 left-0 w-full h-full block touch-none"></canvas>
+      
+      <!-- Tutorial Overlay -->
+      <div id="tutorial-overlay" class="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center z-20">
+        <div class="max-w-md bg-slate-800 p-6 rounded-2xl border-2 border-amber-400 shadow-2xl">
+          <span class="text-5xl mb-4 block animate-bounce">🛸</span>
+          <h2 class="text-2xl font-game text-amber-400 mb-2">HƯỚNG DẪN THẢ HÀNG</h2>
+          <ul class="text-left space-y-2 text-sm text-slate-300 mb-6 list-disc pl-5">
+            <li>Drone sẽ bay qua lại lơ lửng với tốc độ vừa phải.</li>
+            <li>Đã thêm <span class="text-emerald-400 font-bold">Tia Định Vị</span> mờ giúp bạn căn chỉnh hướng rơi dễ dàng hơn.</li>
+            <li>Các <span class="text-yellow-400 font-bold">Sticker được thiết kế To Bự</span> dán ở góc trên đồ vật để phân loại thùng chứa chuẩn xác.</li>
+            <li>Thả lệch ngoài rìa hoặc sai thùng sẽ bị tính phạt <span class="text-red-400 font-bold">1 Sẹo (-1 ⭐)</span>.</li>
+          </ul>
+          <button id="start-btn" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-game py-3 px-6 rounded-xl text-lg shadow-lg transform active:scale-95 transition">
+            BẮT ĐẦU CHƠI THƯ THẢ!
+          </button>
+        </div>
+      </div>
+
+      <!-- Victory Overlay Modal (Cute custom replacement for alert) -->
+      <div id="victory-overlay" class="hidden absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center z-20">
+        <div class="max-w-md bg-slate-800 p-6 rounded-2xl border-2 border-yellow-400 shadow-2xl">
+          <span class="text-6xl mb-4 block animate-bounce">🏆</span>
+          <h2 class="text-3xl font-game text-yellow-400 mb-2">CHIẾN THẮNG!</h2>
+          <p class="text-slate-300 text-sm mb-6">
+            Bạn thật xuất sắc! Bạn đã giao hoàn thành tất cả các đơn hàng một cách an toàn và gọn gàng ngày hôm nay! Bạn là một Shipper 5 sao thực thụ!
+          </p>
+          <button id="restart-game-btn" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-game py-3 px-6 rounded-xl text-lg shadow-lg transform active:scale-95 transition">
+            CHƠI LẠI TỪ ĐẦU 🔄
+          </button>
+        </div>
+      </div>
+
+      <!-- Float Feedback Banner -->
+      <div id="feedback-banner" class="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600/95 text-white font-game py-2 px-6 rounded-full border-2 border-red-400 shadow-xl pointer-events-none transform -translate-y-20 opacity-0 transition-all duration-300 z-10 flex items-center gap-2">
+        <span>❌</span> <span id="feedback-text">Sai Thùng Chứa Rồi!</span>
+      </div>
+    </div>
+
+    <!-- Gameplay Controls Bar -->
+    <div class="w-full max-w-4xl flex gap-3 justify-end items-center mt-3 bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+      <button id="reset-btn" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white px-4 py-3 rounded-xl font-semibold transition text-sm">
+        🔄 Chơi Lại Từ Đầu
+      </button>
+      <button id="next-btn" class="hidden bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white px-6 py-3 rounded-xl font-game shadow-lg transition text-sm md:text-base animate-bounce">
+        TIẾP TỤC ĐƠN HÀNG! 🚀
+      </button>
+    </div>
+  </main>
+
+  <footer class="bg-slate-950 p-3 text-center text-xs text-slate-500 border-t border-slate-800">
+    Giao diện Tinh gọn & Cơ chế Physics Drop Stacking mượt mà.
+  </footer>
+
+  <script>
+    const AudioEngine = {
+      ctx: null,
+      init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+      playSnap() {
+        this.init(); const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.frequency.setValueAtTime(520, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(850, this.ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+      },
+      playError() {
+        this.init(); const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination); osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(60, this.ctx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.3);
+      },
+      playDrop() {
+        this.init(); const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.frequency.setValueAtTime(380, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(180, this.ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+      },
+      playWin() {
+        this.init(); const now = this.ctx.currentTime;
+        [261.63, 329.63, 392.00, 523.25, 659.25, 783.99].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.frequency.setValueAtTime(freq, now + i * 0.08); gain.gain.setValueAtTime(0.08, now + i * 0.08);
+          osc.start(now + i * 0.08); osc.stop(now + i * 0.08 + 0.2);
+        });
+      },
+      playLose() {
+        this.init(); const now = this.ctx.currentTime;
+        [280, 200, 140].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination); osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.1); gain.gain.setValueAtTime(0.15, now + i * 0.1);
+          osc.start(now + i * 0.1); osc.stop(now + i * 0.1 + 0.25);
+        });
+      }
+    };
+
+    let canvas = null;
+    let ctx = null;
+    const CELL_SIZE = 36; // Base unit sizing for item scale
+
+    // Target drop bins on the motorbike
+    const TARGET_BINS = {
+      trai: { label: 'BỬNG TRÁI', icon: '☕', x: 180, y: 440, cols: 4, rows: 4, type: 'trai', sCol: '#f59e0b', bg: 'rgba(245, 158, 11, 0.02)' },
+      to: { label: 'THÙNG SAU', icon: '📦', x: 380, y: 390, cols: 6, rows: 6, type: 'to', sCol: '#a855f7', bg: 'rgba(168, 85, 247, 0.02)' },
+      phai: { label: 'BỬNG PHẢI', icon: '🥤', x: 640, y: 440, cols: 4, rows: 4, type: 'phai', sCol: '#06b6d4', bg: 'rgba(6, 182, 212, 0.02)' }
+    };
+
+    // Điều chỉnh lại tốc độ Drone và lực gió ở các màn chơi để game thân thiện hơn!
+    const LEVELS = [
+      {
+        id: 1, shipFee: 40, wind: 0, droneSpeed: 1.2, // Giảm từ 1.8 xuống 1.2 (Dễ thở)
+        items: [
+          { name: 'Laptop', zone: 'to', color: '#60a5fa', matrix: [[1,1,1],[1,1,1]], drawType: 'laptop' },
+          { name: 'Sách Hướng Dẫn', zone: 'to', color: '#f97316', matrix: [[1,1],[1,1]], drawType: 'book' },
+          { name: 'Cà Phê Sữa', zone: 'trai', color: '#fbbf24', matrix: [[1,1],[1,1]], drawType: 'coffee' },
+          { name: 'Bánh Mì Kẹp', zone: 'trai', color: '#b45309', matrix: [[1,1],[1,1]], drawType: 'sandwich' },
+          { name: 'Chai Nước', zone: 'phai', color: '#22d3ee', matrix: [[1],[1],[1]], drawType: 'water' },
+          { name: 'Gói Snack', zone: 'phai', color: '#f43f5e', matrix: [[1,1],[1,1]], drawType: 'snack' }
+        ]
+      },
+      {
+        id: 2, shipFee: 75, wind: 0.8, droneSpeed: 1.8, // Giảm gió từ 1.5 -> 0.8, tốc độ drone từ 2.6 -> 1.8
+        items: [
+          { name: 'Két Nước Ngọt', zone: 'to', color: '#fbbf24', matrix: [[1,1,1],[1,1,1]], drawType: 'crate' },
+          { name: 'Máy Tính Bảng', zone: 'to', color: '#c084fc', matrix: [[1,1,1],[1,1,0]], drawType: 'tablet' },
+          { name: 'Trà Sữa', zone: 'trai', color: '#f59e0b', matrix: [[1],[1],[1]], drawType: 'bubbletea' },
+          { name: 'Hamburger', zone: 'trai', color: '#d97706', matrix: [[1,1],[1,1]], drawType: 'burger' },
+          { name: 'Bánh Donut', zone: 'trai', color: '#db2777', matrix: [[1,1]], drawType: 'donut' },
+          { name: 'Lon Coca', zone: 'phai', color: '#dc2626', matrix: [[1],[1]], drawType: 'soda' },
+          { name: 'Hộp Kẹo', zone: 'phai', color: '#4ade80', matrix: [[1,1],[1,1]], drawType: 'candybox' }
+        ]
+      },
+      {
+        id: 3, shipFee: 120, wind: 1.6, droneSpeed: 2.3, // Giảm gió từ 3.0 -> 1.6, tốc độ drone từ 3.5 -> 2.3
+        items: [
+          { name: 'Loa Bluetooth', zone: 'to', color: '#3b82f6', matrix: [[1,1,1],[0,1,0],[0,1,0]], drawType: 'speaker' },
+          { name: 'Hộp Giày', zone: 'to', color: '#f97316', matrix: [[1,1,1],[1,1,1]], drawType: 'shoe' },
+          { name: 'Máy Ảnh DSLR', zone: 'to', color: '#64748b', matrix: [[1,1],[1,1]], drawType: 'camera' },
+          { name: 'Bánh Pizza', zone: 'trai', color: '#eab308', matrix: [[1,1,1],[1,1,1],[1,1,1]], drawType: 'pizza' },
+          { name: 'Bánh Hotdog', zone: 'trai', color: '#ef4444', matrix: [[1,1]], drawType: 'hotdog' },
+          { name: 'Bình Giữ Nhiệt', zone: 'phai', color: '#94a3b8', matrix: [[1],[1],[1]], drawType: 'flask' },
+          { name: 'Lon Soda', zone: 'phai', color: '#a3e635', matrix: [[1],[1]], drawType: 'soda' }
+        ]
+      }
+    ];
+
+    let currentLevelIndex = 0, stars = 3, errors = 0, items = [], buckets = {};
+    let activeItem = null; // Item currently on the drone or falling
+    let isFalling = false;
+    let winState = false, failState = false, particleSystem = [];
+    let floatTexts = []; // Floating text indicators (+40, Perfect, etc.)
+
+    // Drone state variables
+    let droneX = 100, droneY = 60;
+    let droneTimer = 0; // Seamless oscillating motion
+    let ropeAngle = 0, ropeLength = 90;
+    let windForce = 0, windTimer = 0;
+    let perfectComboCount = 0;
+
+    const baseWidth = 960, baseHeight = 600; let scale = 1;
+    let lastTime = 0; // Delta time tracker
+
+    function resizeCanvas() {
+      if (!canvas) return;
+      const container = canvas.parentElement; const rect = container.getBoundingClientRect();
+      canvas.width = rect.width; canvas.height = rect.width * (baseHeight / baseWidth);
+      scale = canvas.width / baseWidth; draw();
+    }
+
+    function initLevel(index) {
+      const levelData = LEVELS[index]; currentLevelIndex = index;
+      stars = 3; errors = 0; winState = false; failState = false; particleSystem = []; floatTexts = [];
+      perfectComboCount = 0;
+      isFalling = false;
+      droneTimer = 0;
+      windForce = (Math.random() - 0.5) * levelData.wind * 1.5;
+
+      // Deep copy drop buckets
+      buckets = JSON.parse(JSON.stringify(TARGET_BINS));
+      for (let key in buckets) {
+        buckets[key].stackedItems = [];
+        buckets[key].stackHeight = 0;
+      }
+
+      // Load items & prepare sequence
+      items = levelData.items.map((item, idx) => {
+        const matrix = item.matrix.map(row => [...row]);
+        return { 
+          ...item, matrix, 
+          x: 0, y: 0, vx: 0, vy: 0, 
+          w: matrix[0].length * CELL_SIZE, 
+          h: matrix.length * CELL_SIZE,
+          packed: false,
+          scaleX: 1,
+          scaleY: 1,
+          springVY: 0
+        };
+      });
+
+      // Update indicators
+      updateWindDisplay();
+      updateComboDisplay();
+      document.getElementById('level-badge').innerText = `${levelData.id} / ${LEVELS.length}`;
+      document.getElementById('ship-fee').innerText = `$${levelData.shipFee}`;
+      updateStarsUI();
+      document.getElementById('next-btn').classList.add('hidden');
+
+      spawnNextItem();
+    }
+
+    function spawnNextItem() {
+      const next = items.find(i => !i.packed);
+      if (next) {
+        activeItem = next;
+        isFalling = false;
+        activeItem.vx = 0;
+        activeItem.vy = 0;
+        activeItem.scaleX = 1;
+        activeItem.scaleY = 1;
+        activeItem.springVY = 0;
+      } else {
+        activeItem = null;
+        checkWinCondition();
+      }
+    }
+
+    function updateStarsUI() {
+      const container = document.getElementById('stars-container');
+      let html = ''; for (let i = 0; i < 3; i++) html += (i < stars) ? '⭐' : '<span class="opacity-20">⭐</span>';
+      container.innerHTML = html;
+    }
+
+    function updateWindDisplay() {
+      const dirText = windForce > 0 ? 'Đông ➡️' : (windForce < 0 ? '◀️ Tây' : 'Lặng');
+      document.getElementById('wind-text').innerText = `${Math.abs(windForce * 10).toFixed(0)} km/h (${dirText})`;
+    }
+
+    function updateComboDisplay() {
+      document.getElementById('combo-text').innerText = `x${perfectComboCount}`;
+    }
+
+    function triggerError(message) {
+      errors++; stars = Math.max(0, stars - 1); updateStarsUI(); AudioEngine.playError();
+      perfectComboCount = 0; updateComboDisplay();
+      
+      const banner = document.getElementById('feedback-banner');
+      document.getElementById('feedback-text').innerText = `${message} (-1 Sẹo ⭐)`;
+      banner.classList.remove('opacity-0', '-translate-y-20'); banner.classList.add('opacity-100', 'translate-y-0');
+      setTimeout(() => { banner.classList.remove('opacity-100', 'translate-y-0'); banner.classList.add('opacity-0', '-translate-y-20'); }, 2500);
+      
+      if (stars === 0) { failState = true; AudioEngine.playLose(); }
+    }
+
+    function spawnFloatText(x, y, text, color = '#10b981') {
+      floatTexts.push({ x, y, text, color, alpha: 1, vy: -1.2 });
+    }
+
+    function triggerPerfectConfetti(x, y) {
+      // Bubbly springy particles for maximum cuteness
+      for (let i = 0; i < 25; i++) {
+        particleSystem.push({
+          x, y, 
+          vx: (Math.random() - 0.5) * 8, 
+          vy: -Math.random() * 6 - 4,
+          size: Math.random() * 6 + 4, 
+          color: `hsl(${Math.random() * 360}, 100%, 65%)`, 
+          alpha: 1, 
+          gravity: 0.18,
+          wobble: Math.random() * 10,
+          wobbleSpeed: 0.1 + Math.random() * 0.1
+        });
+      }
+    }
+
+    function rotateActiveItem() {
+      if (!activeItem || isFalling) return;
+      const rot = [];
+      const rows = activeItem.matrix.length;
+      const cols = activeItem.matrix[0].length;
+      for (let j = 0; j < cols; j++) {
+        const newRow = [];
+        for (let i = rows - 1; i >= 0; i--) {
+          newRow.push(activeItem.matrix[i][j]);
+        }
+        rot.push(newRow);
+      }
+      activeItem.matrix = rot;
+      activeItem.w = rot[0].length * CELL_SIZE;
+      activeItem.h = rot.length * CELL_SIZE;
+      
+      // Fun rot squash effect!
+      activeItem.scaleX = 0.8;
+      activeItem.scaleY = 1.3;
+      AudioEngine.playRotate();
+    }
+
+    function checkWinCondition() {
+      const allPacked = items.every(i => i.packed);
+      if (allPacked && !failState) {
+        winState = true; AudioEngine.playWin();
+        document.getElementById('next-btn').classList.remove('hidden');
+        for (let i = 0; i < 75; i++) {
+          particleSystem.push({
+            x: Math.random() * baseWidth, y: baseHeight + 10, vx: (Math.random() - 0.5) * 8, vy: -Math.random() * 12 - 6,
+            size: Math.random() * 7 + 4, color: `hsl(${Math.random() * 360}, 100%, 60%)`, alpha: 1, gravity: 0.2
+          });
+        }
+      }
+    }
+
+    // --- GAME PHYSICS LOOP TICK ---
+    function updatePhysics(dt) {
+      const levelData = LEVELS[currentLevelIndex];
+
+      // 1. Squash and Stretch Spring Simulation solver for ALL active/stacked items
+      items.forEach(item => {
+        if (item.scaleY === undefined) {
+          item.scaleX = 1;
+          item.scaleY = 1;
+          item.springVY = 0;
+        }
+        // Hooke's Law spring solver: F = -k * x
+        const k = 0.08; 
+        const damping = 0.84;
+        let forceY = -k * (item.scaleY - 1);
+        item.springVY += forceY * dt;
+        item.springVY *= Math.pow(damping, dt);
+        item.scaleY += item.springVY * dt;
+        
+        // Volume conservation ratio
+        item.scaleX = 1 / item.scaleY;
+      });
+
+      // 2. Smooth Drone oscillation
+      droneTimer += 0.015 * levelData.droneSpeed * dt;
+      const droneMin = 100;
+      const droneMax = baseWidth - 160;
+      droneX = droneMin + (Math.sin(droneTimer) * 0.5 + 0.5) * (droneMax - droneMin);
+
+      // 3. Dynamic swaying angle
+      ropeAngle = Math.cos(droneTimer) * (0.35 + currentLevelIndex * 0.08);
+
+      // 4. Fall & Drop simulation
+      if (activeItem) {
+        if (!isFalling) {
+          const anchorX = droneX + 45; 
+          const anchorY = droneY + 20;
+          activeItem.x = anchorX + Math.sin(ropeAngle) * ropeLength - activeItem.w / 2;
+          activeItem.y = anchorY + Math.cos(ropeAngle) * ropeLength;
+        } else {
+          activeItem.vy += 0.35 * dt; 
+          activeItem.vx += windForce * 0.06 * dt; 
+          activeItem.vx *= Math.pow(0.985, dt);
+
+          activeItem.x += activeItem.vx * dt;
+          activeItem.y += activeItem.vy * dt;
+
+          // Stretch during fall
+          activeItem.scaleY = Math.min(1.4, 1 + activeItem.vy * 0.025);
+          activeItem.scaleX = 1 / activeItem.scaleY;
+
+          let collisionChecked = false;
+          for (let key in buckets) {
+            const b = buckets[key];
+            const w = b.cols * CELL_SIZE;
+            const h = b.rows * CELL_SIZE;
+
+            const itemCenterX = activeItem.x + activeItem.w / 2;
+            if (itemCenterX >= b.x && itemCenterX <= b.x + w) {
+              const currentStackTopY = b.y + h - b.stackHeight;
+              
+              if (activeItem.y + activeItem.h >= currentStackTopY - 4 && activeItem.y <= currentStackTopY + 18) {
+                collisionChecked = true;
+
+                if (activeItem.zone === key) {
+                  activeItem.packed = true;
+                  isFalling = false;
+                  
+                  const centerDiff = itemCenterX - (b.x + w / 2);
+                  activeItem.x = b.x + w / 2 - activeItem.w / 2 + centerDiff * 0.4;
+                  activeItem.y = currentStackTopY - activeItem.h;
+
+                  // Massive squishy squash on landing impact!
+                  activeItem.scaleY = 0.55; 
+                  activeItem.scaleX = 1.6;
+                  activeItem.springVY = 0.15;
+
+                  // Propagate bouncy shockwave down to all existing items inside this stack!
+                  b.stackedItems.forEach((stacked, idx) => {
+                    stacked.scaleY = 0.72;
+                    stacked.scaleX = 1.35;
+                    // Alternating spring triggers
+                    stacked.springVY = -0.06 * (idx + 1);
+                  });
+
+                  const isPerfect = Math.abs(centerDiff) < 18;
+                  if (isPerfect) {
+                    perfectComboCount++;
+                    updateComboDisplay();
+                    spawnFloatText(itemCenterX, activeItem.y, `HOÀN HẢO! +$${40 + perfectComboCount * 10}`, '#fbbf24');
+                    triggerPerfectConfetti(itemCenterX, activeItem.y);
+                  } else {
+                    perfectComboCount = 0;
+                    updateComboDisplay();
+                    spawnFloatText(itemCenterX, activeItem.y, 'ĐÃ XẾP! +$40', '#10b981');
+                    // Small local dust cloud
+                    for (let d = 0; d < 8; d++) {
+                      particleSystem.push({
+                        x: itemCenterX + (Math.random() - 0.5) * 40,
+                        y: activeItem.y + activeItem.h,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: -Math.random() * 2 - 1,
+                        size: Math.random() * 4 + 3,
+                        color: 'rgba(255,255,255,0.25)',
+                        alpha: 0.8,
+                        gravity: 0.02
+                      });
+                    }
+                  }
+
+                  b.stackedItems.push(activeItem);
+                  b.stackHeight += activeItem.h - 6;
+
+                  AudioEngine.playSnap();
+                  spawnNextItem();
+                } else {
+                  activeItem.vy = -6.5;
+                  activeItem.vx = (itemCenterX > b.x + w / 2) ? 4.5 : -4.5;
+                  
+                  let realZoneVi = activeItem.zone === 'to' ? 'Thùng Sau' : (activeItem.zone === 'trai' ? 'Bửng Trái' : 'Bửng Phải');
+                  let wrongZoneVi = b.label;
+                  triggerError(`Sai Thùng! "${activeItem.name}" phải thả vào ${realZoneVi}, không được bỏ vào ${wrongZoneVi}!`);
+                }
+                break;
+              }
+            }
+          }
+
+          if (!collisionChecked && activeItem.y > baseHeight) {
+            let correctZoneVi = activeItem.zone === 'to' ? 'Thùng Sau' : (activeItem.zone === 'trai' ? 'Bửng Trái' : 'Bửng Phải');
+            triggerError(`Thả trượt mất hàng rồi! "${activeItem.name}" phải xếp vào ${correctZoneVi}!`);
+            spawnNextItem();
+          }
+        }
+      }
+
+      // Wind updates
+      windTimer += dt;
+      if (windTimer > 180) {
+        windTimer = 0;
+        windForce = (Math.random() - 0.5) * levelData.wind * 1.5;
+        updateWindDisplay();
+      }
+
+      // 5. Update Particles with a cute organic wiggle float
+      for (let i = particleSystem.length - 1; i >= 0; i--) {
+        const p = particleSystem[i];
+        p.vy += p.gravity * dt; 
+        p.x += p.vx * dt; 
+        p.y += p.vy * dt;
+        p.alpha -= 0.015 * dt;
+
+        if (p.wobble !== undefined) {
+          p.wobble += p.wobbleSpeed * dt;
+          p.x += Math.sin(p.wobble) * 0.4 * dt;
+        }
+
+        if (p.alpha <= 0) particleSystem.splice(i, 1);
+      }
+
+      // 6. Update float texts
+      for (let i = floatTexts.length - 1; i >= 0; i--) {
+        const ft = floatTexts[i];
+        ft.y += ft.vy * dt; ft.alpha -= 0.015 * dt;
+        if (ft.alpha <= 0) floatTexts.splice(i, 1);
+      }
+    }
+
+    // Tap action triggers free drop release
+    function dropActiveItem() {
+      if (!activeItem || isFalling || failState || winState) return;
+      AudioEngine.playDrop();
+      isFalling = true;
+
+      const levelData = LEVELS[currentLevelIndex];
+      // Tính toán vận tốc ngang thực tế của Drone tại thời điểm thả hàng từ phương trình sóng sin chuyển động
+      const droneVelocity = 5.25 * levelData.droneSpeed * Math.cos(droneTimer);
+
+      // FIX: Cải tiến quán tính đà (Momentum) dịu nhẹ hơn, cho phép lướt nẩy tự nhiên nhưng KHÔNG làm văng món đồ đi quá xa!
+      activeItem.vx = droneVelocity * 0.35 + Math.sin(ropeAngle) * 1.5;
+      activeItem.vy = Math.cos(ropeAngle) * 1.5;
+    }
+
+    // --- CANVAS GRAPHIC ASSET DRAWERS ---
+    function draw() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save(); ctx.scale(scale, scale);
+
+      drawScenicBackground();
+      drawMotorbikeGraphic(500, 360);
+      drawGardenMarkers();
+
+      for (let key in buckets) {
+        buckets[key].stackedItems.forEach(item => {
+          drawIconItem(item);
+        });
+      }
+
+      // Vẽ đường chỉ dẫn định vị Laser nét đứt mờ ảo từ tâm drone đi thẳng xuống bệ để ngắm bắn dễ dàng hơn!
+      if (activeItem && !isFalling) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([5, 8]);
+        ctx.beginPath();
+        // Tâm thả hàng
+        const centerX = activeItem.x + activeItem.w / 2;
+        ctx.moveTo(centerX, activeItem.y + activeItem.h);
+        ctx.lineTo(centerX, baseHeight);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (activeItem) {
+        if (!isFalling) {
+          const anchorX = droneX + 45;
+          const anchorY = droneY + 20;
+          ctx.strokeStyle = '#d1d5db';
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.moveTo(anchorX, anchorY);
+          ctx.lineTo(activeItem.x + activeItem.w / 2, activeItem.y);
+          ctx.stroke();
+        }
+        drawIconItem(activeItem);
+      }
+
+      drawDroneUAV(droneX, droneY);
+      drawFloatTexts();
+
+      particleSystem.forEach(p => {
+        ctx.save(); ctx.globalAlpha = Math.max(0, p.alpha); ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      });
+
+      drawGameScreens();
+      ctx.restore();
+    }
+
+    function drawScenicBackground() {
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, baseHeight);
+      skyGrad.addColorStop(0, '#0f172a');
+      skyGrad.addColorStop(0.5, '#1e293b');
+      skyGrad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, baseWidth, baseHeight);
+
+      // Cute stars in background
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      for (let i = 1; i <= 6; i++) {
+        ctx.beginPath();
+        ctx.arc(i * 140, 80 + Math.sin(Date.now() * 0.001 + i) * 10, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = '#131c2d';
+      ctx.beginPath();
+      ctx.moveTo(0, 480);
+      ctx.lineTo(baseWidth, 480);
+      ctx.lineTo(baseWidth, 600);
+      ctx.lineTo(0, 600);
+      ctx.fill();
+
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = 3; ctx.setLineDash([12, 12]);
+      ctx.beginPath(); ctx.moveTo(0, 540); ctx.lineTo(baseWidth, 540); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    function drawDroneUAV(x, y) {
+      ctx.save(); ctx.translate(x, y);
+
+      // Rotors dynamic tilt angle based on movement speed momentum
+      const droneCycle = Math.sin(droneTimer);
+      const tilt = droneCycle * 0.08;
+      ctx.rotate(tilt);
+
+      const rOffset = Math.sin(Date.now() * 0.18) * 8;
+      ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2.5;
+
+      // Left Rotor
+      ctx.beginPath(); ctx.ellipse(5, 5, 22, 4, rOffset, 0, Math.PI * 2); ctx.stroke();
+      // Right Rotor
+      ctx.beginPath(); ctx.ellipse(85, 5, 22, 4, -rOffset, 0, Math.PI * 2); ctx.stroke();
+
+      ctx.strokeStyle = '#475569'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(10, 8); ctx.lineTo(80, 8); ctx.stroke();
+
+      ctx.fillStyle = '#f1f5f9'; ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.roundRect(25, 2, 40, 24, 8); ctx.fill(); ctx.stroke();
+
+      // Glowing lens camera looking downwards
+      ctx.fillStyle = '#06b6d4'; ctx.beginPath(); ctx.arc(45, 18, 5, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawMotorbikeGraphic(bx, by) {
+      ctx.save(); ctx.translate(bx, by);
+      ctx.fillStyle = '#070a13'; 
+      ctx.beginPath(); ctx.roundRect(-240, 100, 60, 24, 6); ctx.roundRect(160, 100, 50, 20, 5); ctx.fill(); // Tires
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = 7; ctx.strokeRect(-210, 20, 380, 80); // Luggage rack support
+      ctx.fillStyle = '#1e3a8a'; ctx.beginPath(); ctx.moveTo(-210, 40); ctx.lineTo(100, 30); ctx.quadraticCurveTo(150, 45, 170, 70); ctx.lineTo(-210, 75); ctx.closePath(); ctx.fill(); // Frame
+      ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.roundRect(-100, 25, 120, 40, 8); ctx.fill(); // Driver seat
+      ctx.restore();
+    }
+
+    function drawGardenMarkers() {
+      for (let key in buckets) {
+        const b = buckets[key], w = b.cols * CELL_SIZE, h = b.rows * CELL_SIZE;
+        let sCol = b.sCol, bg = b.bg;
+
+        // FIX: Giữ nguyên màu viền đặc trưng của loại Thùng chứ không biến thành màu xanh lá cây, giúp đồng nhất với icon món hàng!
+        const isHighlighted = activeItem && activeItem.zone === key;
+        if (isHighlighted) {
+          // Chỉ tăng độ dày nét viền và thêm hiệu ứng phát sáng mờ ảo có màu đồng điệu tương ứng
+          bg = sCol === '#a855f7' ? 'rgba(168, 85, 247, 0.12)' : (sCol === '#f59e0b' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(6, 182, 212, 0.12)');
+        }
+
+        ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(b.x, b.y, w, h, 10); ctx.fill();
+        ctx.strokeStyle = sCol; 
+        ctx.lineWidth = isHighlighted ? 4.5 : 2.5; // Viền dày và rõ nét hơn hẳn khi thùng được kích hoạt mục tiêu thả!
+        ctx.stroke();
+
+        ctx.save();
+        // 1. Draw wooden marker stick cắm đất
+        ctx.fillStyle = '#78350f'; ctx.strokeStyle = '#451a03'; ctx.lineWidth = 1.2;
+        const stickX = b.x + w / 2 - 3;
+        ctx.beginPath(); ctx.roundRect(stickX, b.y - 20, 6, 24, 1); ctx.fill(); ctx.stroke();
+
+        // 2. Tăng kích cỡ Bảng Gỗ Đánh Dấu (Taller Plate Board)
+        const boardW = Math.min(w - 8, 120);
+        const boardX = b.x + w / 2 - boardW / 2;
+        const boardY = b.y - 42;
+        const boardH = 26; // Cao hơn bản cũ để chứa icon bự
+        ctx.fillStyle = '#0f172a'; ctx.strokeStyle = sCol; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.roundRect(boardX, boardY, boardW, boardH, 6); ctx.fill(); ctx.stroke();
+
+        // 3. Vẽ Icon To Khổng Lồ bên cạnh Text phân loại
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+        // Phóng to biểu tượng Emoji trong bảng hiệu
+        ctx.font = '15px Arial';
+        ctx.fillText(b.icon, boardX + 16, boardY + boardH / 2);
+
+        // Vẽ nhãn văn bản phân khu
+        ctx.fillStyle = sCol;
+        ctx.font = 'bold 9px Quicksand';
+        ctx.textAlign = 'left';
+        ctx.fillText(b.label, boardX + 34, boardY + boardH / 2 + 0.5);
+        ctx.restore();
+      }
+    }
+
+    function drawIconItem(item) {
+      ctx.save();
+      
+      // Pivot translation to the bottom center of the item so the squash and stretch anchors perfectly!
+      ctx.translate(item.x + item.w / 2, item.y + item.h);
+      ctx.scale(item.scaleX || 1, item.scaleY || 1);
+      ctx.translate(-item.w / 2, -item.h);
+
+      ctx.shadowColor = 'rgba(0,0,0,0.18)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 2;
+
+      renderIconVector(item.drawType, item.w, item.h, item.color);
+
+      // Determine emotional eye state
+      let faceState = 'scared';
+      if (item.packed) faceState = 'happy';
+      else if (!isFalling) faceState = 'swing';
+
+      drawCuteKawaiiFace(item.w / 2, item.h / 2, item.w, item.h, faceState);
+
+      // Vẽ Sticker dán phân loại (Bản to dễ nhìn)
+      drawItemSticker(item);
+
+      ctx.restore();
+    }
+
+    // DRAW CUTE KAWAII BLUSHING FACE
+    function drawCuteKawaiiFace(cx, cy, w, h, state) {
+      ctx.save();
+      
+      // Cheerful rosy cheeks
+      ctx.fillStyle = 'rgba(244, 114, 182, 0.55)'; // Blush pink
+      ctx.beginPath();
+      ctx.arc(cx - 15, cy + 4, 5, 0, Math.PI * 2);
+      ctx.arc(cx + 15, cy + 4, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+
+      if (state === 'happy') {
+        // Happy arch eyes '^ ^'
+        ctx.beginPath();
+        ctx.arc(cx - 11, cy + 1, 3.5, Math.PI, 0, false);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + 11, cy + 1, 3.5, Math.PI, 0, false);
+        ctx.stroke();
+
+        // Cute laughing mouth
+        ctx.fillStyle = '#f43f5e';
+        ctx.beginPath();
+        ctx.arc(cx, cy + 3, 4, 0, Math.PI, false);
+        ctx.fill();
+        ctx.stroke();
+      } else if (state === 'swing') {
+        // Sleepy happy closed curve eyes 'u u'
+        ctx.beginPath();
+        ctx.arc(cx - 11, cy - 2, 4, 0, Math.PI, false);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + 11, cy - 2, 4, 0, Math.PI, false);
+        ctx.stroke();
+
+        // Chubby small kiss face 'o' mouth
+        ctx.beginPath();
+        ctx.arc(cx, cy + 2, 2.2, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        // Falling terrified big dots
+        ctx.beginPath();
+        ctx.arc(cx - 11, cy, 3, 0, Math.PI * 2);
+        ctx.arc(cx + 11, cy, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Shocked 'O' mouth
+        ctx.beginPath();
+        ctx.arc(cx, cy + 3.5, 3.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    // THỬ NGHIỆM: Thiết kế nhãn Sticker tròn To Bự hơn hẳn ở góc phải để cực dễ nhìn
+    function drawItemSticker(item) {
+      ctx.save();
+      // Đẩy vị trí sticker lùi sang góc phải phía ngoài vật dụng một chút để dễ nhìn
+      ctx.translate(item.w - 2, 2);
+      ctx.rotate(-0.15); // Độ nghiêng cute
+
+      let sCol = '#a855f7', stampIcon = '📦';
+      if (item.zone === 'trai') { sCol = '#f59e0b'; stampIcon = '☕'; }
+      if (item.zone === 'phai') { sCol = '#06b6d4'; stampIcon = '🥤'; }
+
+      // Sticker Soft Shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.3)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+
+      // Viền Sticker Trắng Dày
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 15, 0, Math.PI * 2); // Tăng bán kính lên 15px (Đường kính 30px, trước đây chỉ 9px)
+      ctx.fill();
+      ctx.stroke();
+
+      // Tắt bóng đổ của viền để vẽ nhân màu bên trong sạch sẽ
+      ctx.shadowColor = 'transparent';
+
+      // Màu nền phân loại
+      ctx.fillStyle = sCol;
+      ctx.beginPath();
+      ctx.arc(0, 0, 11.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Emoji bên trong (To và Sắc nét hơn)
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px Arial'; // Tăng font size từ 9px lên 13px
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(stampIcon, 0, 0.5);
+
+      ctx.restore();
+    }
+
+    // PURE ART ICON RENDERING USING VECTOR PATHS
+    function renderIconVector(type, w, h, color) {
+      const cx = w / 2, cy = h / 2;
+      ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+
+      ctx.fillStyle = color;
+      switch (type) {
+        case 'laptop':
+          ctx.beginPath(); ctx.roundRect(cx - 36, cy - 18, 72, 40, 5); ctx.fill(); ctx.stroke(); // Screen
+          ctx.fillStyle = '#1e293b'; ctx.fillRect(cx - 30, cy - 13, 60, 28);
+          ctx.fillStyle = '#94a3b8'; ctx.beginPath(); ctx.roundRect(cx - 42, cy + 22, 84, 6, 2); ctx.fill(); ctx.stroke(); // Base keyboard
+          break;
+        case 'book':
+          ctx.beginPath(); ctx.roundRect(cx - 24, cy - 28, 48, 56, 4); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#fef08a'; ctx.fillRect(cx + 12, cy - 24, 8, 48); // Pages fold
+          ctx.fillStyle = '#0f172a'; ctx.fillRect(cx - 16, cy - 14, 20, 4); ctx.fillRect(cx - 16, cy - 4, 24, 4); // Line textures
+          break;
+        case 'cosmetic':
+          ctx.beginPath(); ctx.arc(cx, cy, 24, 0, Math.PI*2); ctx.fill(); ctx.stroke(); // Compact container
+          ctx.fillStyle = '#fce7f3'; ctx.beginPath(); ctx.arc(cx, cy, 16, 0, Math.PI*2); ctx.fill(); ctx.stroke(); // Mirror inner
+          ctx.fillStyle = '#f472b6'; ctx.beginPath(); ctx.arc(cx - 4, cy + 4, 8, 0, Math.PI*2); ctx.fill(); // Powder puff blush
+          break;
+        case 'coffee':
+          ctx.fillStyle = '#78350f'; ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI*2); ctx.fill(); ctx.stroke(); // Coffee liquid
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx, cy, 25, 0, Math.PI*2); ctx.stroke(); // Ceramic Cup outline
+          ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.roundRect(cx + 18, cy - 6, 12, 12, 3); ctx.fill(); // Handle
+          break;
+        case 'sandwich':
+          ctx.beginPath(); ctx.moveTo(cx - 28, cy - 24); ctx.lineTo(cx + 28, cy - 24); ctx.lineTo(cx - 28, cy + 28); ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#16a34a'; ctx.fillRect(cx - 24, cy - 22, 40, 4); // Veggie green line layer
+          ctx.fillStyle = '#dc2626'; ctx.fillRect(cx - 24, cy - 14, 24, 4); // Ham tomato layer
+          break;
+        case 'water':
+          ctx.beginPath(); ctx.roundRect(cx - 12, cy - 35, 24, 70, 6); ctx.fill(); ctx.stroke(); // Bottle
+          ctx.fillStyle = '#3b82f6'; ctx.fillRect(cx - 12, cy - 10, 24, 18); // Brand Label
+          ctx.fillStyle = '#1e3a8a'; ctx.fillRect(cx - 6, cy - 40, 12, 6); // Cap
+          break;
+        case 'snack':
+          ctx.beginPath(); ctx.moveTo(cx - 20, cy - 30); ctx.lineTo(cx + 20, cy - 30); ctx.lineTo(cx + 24, cy + 30); ctx.lineTo(cx - 24, cy + 30); ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#facc15'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚡', cx, cy + 5); // Crisp sign flash
+          break;
+        case 'crate':
+          ctx.beginPath(); ctx.roundRect(cx - 40, cy - 30, 80, 60, 6); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#059669'; // Can bottle tops
+          for (let i = -24; i <= 24; i += 24) {
+            for (let j = -14; j <= 14; j += 28) {
+              ctx.beginPath(); ctx.arc(cx + i, cy + j, 7, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            }
+          }
+          break;
+        case 'tablet':
+          ctx.beginPath(); ctx.roundRect(cx - 38, cy - 25, 76, 50, 4); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#0f172a'; ctx.fillRect(cx - 32, cy - 20, 64, 40); // Matte Screen
+          break;
+        case 'gift':
+          ctx.fillRect(cx - 26, cy - 26, 52, 52); ctx.strokeRect(cx - 26, cy - 26, 52, 52);
+          ctx.strokeStyle = '#facc15'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(cx, cy - 26); ctx.lineTo(cx, cy + 26); ctx.moveTo(cx - 26, cy); ctx.lineTo(cx + 26, cy); ctx.stroke(); // Ribbons
+          break;
+        case 'bubbletea':
+          ctx.beginPath(); ctx.moveTo(cx - 15, cy - 35); ctx.lineTo(cx + 15, cy - 35); ctx.lineTo(cx + 10, cy + 35); ctx.lineTo(cx - 10, cy + 35); ctx.closePath(); ctx.fill(); ctx.stroke(); // Cup frame
+          ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.arc(cx - 4, cy + 22, 4, 0, Math.PI*2); ctx.arc(cx + 4, cy + 25, 3, 0, Math.PI*2); ctx.arc(cx, cy + 15, 3.5, 0, Math.PI*2); ctx.fill(); // Bobas
+          ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(cx, cy - 20); ctx.lineTo(cx, cy - 44); ctx.stroke(); // Big Straw
+          break;
+        case 'burger':
+          ctx.beginPath(); ctx.arc(cx, cy - 2, 25, Math.PI, 0); ctx.fill(); ctx.stroke(); // Top bun
+          ctx.fillStyle = '#16a34a'; ctx.fillRect(cx - 26, cy, 52, 4); // Lettuce
+          ctx.fillStyle = '#7f1d1d'; ctx.beginPath(); ctx.roundRect(cx - 24, cy + 6, 48, 8, 3); ctx.fill(); ctx.stroke(); // Patty meat
+          ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(cx - 25, cy + 16, 50, 6, {bl: 4, br: 4}); ctx.fill(); ctx.stroke(); // Bottom bun
+          break;
+        case 'donut':
+          ctx.beginPath(); ctx.arc(cx, cy, 25, 0, Math.PI*2); ctx.fill(); ctx.stroke(); // Pastry ring outer
+          ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill(); ctx.stroke(); // Middle hole
+          break;
+        case 'soda':
+          ctx.beginPath(); ctx.roundRect(cx - 14, cy - 26, 28, 52, 5); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(cx - 14, cy - 4, 28, 8); // Aluminum accent brand band
+          break;
+        case 'candybox':
+          ctx.beginPath(); ctx.roundRect(cx - 22, cy - 22, 44, 44, 6); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(cx - 6, cy - 4, 4, 0, Math.PI*2); ctx.arc(cx + 8, cy + 6, 5, 0, Math.PI*2); ctx.fill(); // Sweet candies inside visible window
+          break;
+        case 'speaker':
+          ctx.beginPath(); ctx.roundRect(cx - 35, cy - 20, 70, 40, 6); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.arc(cx - 16, cy, 12, 0, Math.PI*2); ctx.arc(cx + 16, cy, 12, 0, Math.PI*2); ctx.fill(); ctx.stroke(); // Twin subwoofers
+          break;
+        case 'camera':
+          ctx.beginPath(); ctx.roundRect(cx - 26, cy - 18, 52, 38, 5); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(cx, cy + 2, 14, 0, Math.PI*2); ctx.fill(); ctx.stroke(); // DSLR Lens glass aperture
+          break;
+        case 'pizza':
+          ctx.beginPath(); ctx.arc(cx, cy, 38, 0, Math.PI*2); ctx.fill(); ctx.stroke(); // Whole pizza round
+          ctx.strokeStyle = '#b45309'; ctx.lineWidth = 2; // Slice line marks
+          ctx.beginPath(); ctx.moveTo(cx - 38, cy); ctx.lineTo(cx + 38, cy); ctx.moveTo(cx, cy - 38); ctx.lineTo(cx, cy + 38); ctx.stroke();
+          ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(cx - 14, cy - 12, 4, 0, Math.PI*2); ctx.arc(cx + 14, cy + 14, 4, 0, Math.PI*2); ctx.fill(); // Pepperonis
+          break;
+        case 'hotdog':
+          ctx.beginPath(); ctx.roundRect(cx - 32, cy - 10, 64, 20, 10); ctx.fill(); ctx.stroke(); // Long roll buns
+          ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.roundRect(cx - 36, cy - 3, 72, 6, 3); ctx.fill(); ctx.stroke(); // Red frankfurter sausage tube
+          break;
+        case 'flask':
+          ctx.beginPath(); ctx.roundRect(cx - 12, cy - 34, 24, 68, 8); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#475569'; ctx.fillRect(cx - 6, cy - 40, 12, 6); // Steel ring lid handle
+          break;
+        default:
+          ctx.fillRect(cx - 15, cy - 15, 30, 30); ctx.strokeRect(cx - 15, cy - 15, 30, 30);
+          break;
+      }
+    }
+
+    // DRAW TEXTS (HOÀN HẢO / SỐ TIỀN) BAY LÊN
+    function drawFloatTexts() {
+      floatTexts.forEach(ft => {
+        ctx.save(); ctx.globalAlpha = Math.max(0, ft.alpha);
+        ctx.fillStyle = ft.color; ctx.font = 'bold 15px Quicksand';
+        ctx.textAlign = 'center'; ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+      });
+    }
+
+    // VẼ MÀN HÌNH GAME OVER / CHIẾN THẮNG TRÊN CANVAS
+    function drawGameScreens() {
+      if (failState) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)'; ctx.fillRect(0, 0, baseWidth, baseHeight);
+        ctx.fillStyle = '#ef4444'; ctx.font = 'bold 36px Fredoka One'; ctx.textAlign = 'center'; ctx.fillText('THẤT BẠI!', baseWidth/2, baseHeight/2 - 20);
+        ctx.fillStyle = '#ffffff'; ctx.font = '700 15px Quicksand'; ctx.fillText('Bạn phạm lỗi sẹo quá 3 lần!', baseWidth/2, baseHeight/2 + 15);
+      }
+      if (winState) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.4)'; ctx.fillRect(0, 0, baseWidth, baseHeight);
+        ctx.fillStyle = '#10b981'; ctx.font = 'bold 36px Fredoka One'; ctx.textAlign = 'center'; ctx.fillText('ĐÃ HOÀN THÀNH!', baseWidth/2, baseHeight/2 - 15);
+      }
+    }
+
+
+    // --- UNIFIED POINTER CONTROLS & EVENT BINDINGS ---
+    function getPointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cX = e.touches ? e.touches[0].clientX : e.clientX;
+      const cY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: (cX - rect.left) / scale, y: (cY - rect.top) / scale };
+    }
+
+    // Single tap drops active package
+    function onPointerDown(e) {
+      dropActiveItem();
+    }
+
+    // Hàm khởi tạo và gán sự kiện an toàn sau khi cây DOM đã được tải hoàn chỉnh
+    function initGame() {
+      canvas = document.getElementById('gameCanvas');
+      if (!canvas) return;
+      ctx = canvas.getContext('2d');
+
+      // Gán sự kiện cho canvas
+      canvas.addEventListener('mousedown', onPointerDown);
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        onPointerDown(e);
+      });
+
+      // Gán sự kiện cho các nút điều khiển một cách an toàn
+      const rotateBtn = document.getElementById('rotate-btn');
+      if (rotateBtn) rotateBtn.addEventListener('click', rotateActiveItem);
+
+      const resetBtn = document.getElementById('reset-btn');
+      if (resetBtn) resetBtn.addEventListener('click', () => { initLevel(currentLevelIndex); draw(); });
+
+      const startBtn = document.getElementById('start-btn');
+      if (startBtn) startBtn.addEventListener('click', () => { 
+        document.getElementById('tutorial-overlay').classList.add('hidden'); 
+        AudioEngine.init(); 
+        initLevel(0); 
+        draw(); 
+      });
+
+      const restartGameBtn = document.getElementById('restart-game-btn');
+      if (restartGameBtn) restartGameBtn.addEventListener('click', () => {
+        document.getElementById('victory-overlay').classList.add('hidden');
+        AudioEngine.init();
+        initLevel(0);
+        draw();
+      });
+
+      const nextBtn = document.getElementById('next-btn');
+      if (nextBtn) nextBtn.addEventListener('click', () => {
+        const next = currentLevelIndex + 1;
+        if (next < LEVELS.length) { 
+          initLevel(next); 
+          draw(); 
+        } else { 
+          document.getElementById('victory-overlay').classList.remove('hidden');
+        }
+      });
+
+      // Lắng nghe sự kiện bàn phím (Xoay bằng R / Space)
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'r' || e.key === 'R' || e.key === ' ') {
+          if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            rotateActiveItem();
+          }
+        }
+      });
+
+      window.addEventListener('resize', resizeCanvas);
+
+      resizeCanvas();
+      
+      // Khởi tạo timestamp cho gameTick
+      lastTime = performance.now();
+      requestAnimationFrame(gameTick);
+    }
+
+    // Kiểm tra trạng thái sẵn sàng của tài liệu trước khi khởi chạy
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initGame);
+    } else {
+      initGame();
+    }
+
+    // Dynamic gameloop using requestAnimationFrame timestamps
+    function gameTick(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      // Tính toán delta time chuẩn để mượt mà trên mọi màn hình
+      let dt = (timestamp - lastTime) / 16.666;
+      if (dt > 4) dt = 4; // Giới hạn bước nhảy khi tụt fps sâu
+      lastTime = timestamp;
+
+      if (!failState && !winState) {
+        updatePhysics(dt);
+      }
+      draw();
+      requestAnimationFrame(gameTick);
+    }
+  </script>
+</body>
+</html>
