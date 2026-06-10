@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mangaka Deckbuilder - Arcade Edition</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f0;
+            --grid-line: #ccc;
+            --text-color: #111;
+            --red: #e60012;
+            --blue: #00aaff;
+            --green: #00aa00;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a24;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            touch-action: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* --- Room Background --- */
+        #room-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #1a1a24;
+            z-index: -2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            overflow: hidden;
+        }
+        
+        #room-bg::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: -1;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        .loading-text {
+            font-weight: bold; color: rgba(255, 255, 255, 0.7); text-shadow: 2px 2px 0 #000;
+            font-size: 24px; animation: pulse 1.5s infinite;
+        }
+
+        /* --- Intro Screen --- */
+        #intro-screen {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.95); z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #fff; text-align: center; padding: 20px;
+        }
+
+        .intro-title {
+            font-family: 'Impact', sans-serif; font-size: 60px;
+            color: #fff; -webkit-text-stroke: 2px #000;
+            text-shadow: 4px 4px 0 #e60012; margin-bottom: 30px; transform: rotate(-3deg);
+        }
+
+        .story-text {
+            font-size: 18px; line-height: 1.8; margin-bottom: 40px;
+            max-width: 500px; text-shadow: 2px 2px 4px #000;
+        }
+
+        .story-text p { opacity: 0; animation: fadeIn 1s forwards; }
+        .story-text p:nth-child(1) { animation-delay: 0.5s; }
+        .story-text p:nth-child(2) { animation-delay: 1.5s; }
+        .story-text p:nth-child(3) { animation-delay: 2.5s; color: var(--red); font-weight: bold; font-size: 22px;}
+        
+        @keyframes fadeIn {
+            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; transform: translateY(10px); }
+        }
+
+        .btn {
+            padding: 15px 30px; font-size: 24px; font-weight: bold; background: #e60012;
+            color: #fff; border: 4px solid #fff; cursor: pointer;
+            box-shadow: 6px 6px 0 #000; transition: transform 0.1s; font-family: 'Impact', sans-serif;
+            opacity: 0; animation: fadeIn 1s 3.5s forwards;
+        }
+        .btn:active { transform: translate(3px, 3px); box-shadow: 3px 3px 0 #000; }
+        .btn:disabled { background: #888; box-shadow: 3px 3px 0 #555; cursor: not-allowed; }
+
+        /* --- Gameplay UI --- */
+        #ui-header {
+            width: 100%; max-width: 600px; padding: 10px; display: flex;
+            justify-content: space-between; align-items: flex-start; box-sizing: border-box;
+            background: #fff; border-bottom: 4px solid #000; z-index: 10;
+        }
+
+        .stat-box { display: flex; flex-direction: column; width: 30%; }
+        .player-stat { text-align: left; }
+        .enemy-stat { text-align: right; }
+
+        .stat-label { font-size: 12px; font-weight: bold; color: #666; margin-bottom: 2px; }
+        .stat-value { font-size: 24px; font-weight: 900; font-family: 'Impact', sans-serif; letter-spacing: 1px; }
+
+        .stress-text { color: var(--text-color); }
+        .block-text { color: var(--blue); font-size: 16px;}
+        .hp-text { color: var(--red); }
+        .intent-text { color: #ffaa00; font-size: 14px; font-weight: bold; }
+
+        .center-area { display: flex; flex-direction: column; align-items: center; width: 40%; }
+        .title { font-weight: 900; font-size: 18px; text-transform: uppercase; margin-bottom: 5px; }
+
+        #game-container {
+            flex-grow: 1; width: 100%; display: flex; justify-content: center; align-items: center; position: relative;
+        }
+
+        canvas {
+            display: block; image-rendering: pixelated; background: transparent;
+            box-shadow: 10px 10px 0px rgba(0,0,0,0.3); border: 4px solid #000;
+        }
+
+        #boss-img-container {
+            margin-top: 5px; width: 80px; height: 80px; border: 3px solid #000; align-self: flex-end; background: #fff; 
+            display: flex; align-items: center; justify-content: center; font-size: 10px; overflow: hidden; position: relative; 
+            box-shadow: 4px 4px 0 var(--red); transform: rotate(2deg);
+        }
+
+        /* --- Overlays & Popups --- */
+        #overlay-screen {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.95); display: none; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 20; text-align: center;
+        }
+
+        .manga-text {
+            font-family: 'Impact', sans-serif; font-size: 50px; color: #fff;
+            -webkit-text-stroke: 3px #000; text-shadow: 4px 4px 0 #000, 8px 8px 0 var(--red);
+            transform: rotate(-5deg); margin-bottom: 30px;
+        }
+
+        #ai-review-box {
+            background: #fff; border: 4px solid #000; padding: 15px; max-width: 80%; font-family: 'Courier New', Courier, monospace;
+            font-weight: bold; font-size: 14px; color: #000; margin-bottom: 20px; box-shadow: 4px 4px 0 var(--blue); transform: rotate(2deg);
+        }
+
+        /* --- Animations --- */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake-active { animation: shake 0.5s; }
+        
+        @keyframes bossAttackLunge {
+            0% { transform: scale(1) translate(0, 0) rotate(2deg); }
+            40% { transform: scale(1.6) translate(-20px, 20px) rotate(-10deg); box-shadow: 0 0 40px var(--red); z-index: 50;}
+            60% { transform: scale(1.6) translate(-20px, 20px) rotate(-10deg); box-shadow: 0 0 40px var(--red); z-index: 50;}
+            100% { transform: scale(1) translate(0, 0) rotate(2deg); }
+        }
+        .boss-attacking { animation: bossAttackLunge 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 50;}
+
+        @keyframes bossHurtFlash {
+            0% { filter: brightness(1); transform: translateX(0) rotate(2deg); }
+            20% { filter: brightness(2) invert(1); transform: translateX(-15px) rotate(-5deg); }
+            40% { filter: brightness(1); transform: translateX(15px) rotate(5deg); }
+            60% { filter: brightness(2) invert(1); transform: translateX(-15px) rotate(-5deg); }
+            100% { filter: brightness(1); transform: translateX(0) rotate(2deg); }
+        }
+        .boss-hurt { animation: bossHurtFlash 0.5s; }
+
+        #sfx-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 15;
+        }
+        .sfx-text {
+            position: absolute; font-family: 'Impact', sans-serif; font-weight: bold; color: transparent;
+            -webkit-text-stroke: 2px #000; text-shadow: 3px 3px 0px #fff, 5px 5px 0px #000;
+            pointer-events: none; animation: popOut 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popOut { 0% { transform: scale(0) rotate(-20deg); opacity: 0; } 40% { transform: scale(1.5) rotate(10deg); opacity: 1; } 100% { transform: scale(1) rotate(0deg); opacity: 0; margin-top: -30px;} }
+
+        /* --- Producer --- */
+        #producer-container {
+            position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; z-index: 30;
+        }
+
+        #producer-bubble {
+            background: #fff; border: 4px solid #000; padding: 15px; font-family: 'Courier New', Courier, monospace;
+            font-weight: bold; font-size: 14px; max-width: 220px; text-align: center; box-shadow: 4px 4px 0 var(--red);
+            margin-bottom: 15px; opacity: 0; transform: translateY(20px) scale(0.8); transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 5px; position: relative;
+        }
+        #producer-bubble::after { content: ''; position: absolute; bottom: -12px; right: 30px; border-width: 12px 12px 0 0; border-style: solid; border-color: #000 transparent transparent transparent; }
+        #producer-bubble.show { opacity: 1; transform: translateY(0) scale(1); }
+
+        #producer-sprite {
+            width: 70px; height: 70px; background: #ffccaa; border: 4px solid #000; border-radius: 5px; box-shadow: 4px 4px 0 #000; position: relative; overflow: hidden; transition: transform 0.1s;
+        }
+        .producer-glasses { position: absolute; top: 20px; left: 10px; right: 10px; height: 12px; border: 3px solid #000; background: rgba(255,255,255,0.8); }
+        .producer-mustache { position: absolute; top: 40px; left: 15px; right: 15px; height: 10px; background: #000; border-radius: 10px 10px 0 0; }
+        .producer-sweat { position: absolute; top: 10px; right: 10px; width: 8px; height: 12px; background: #00aaff; border: 2px solid #000; border-radius: 50% 50% 5px 5px; animation: sweatDrop 1s infinite alternate; }
+        
+        .loader {
+            border: 3px solid #eee; border-top: 3px solid var(--red); border-radius: 50%;
+            width: 20px; height: 20px; animation: spin 1s linear infinite; margin-bottom: 5px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .flex-col-center { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+
+    <div id="room-bg"><div class="loading-text" id="room-bg-loading">RENDERING STUDIO...</div></div>
+
+    <!-- Intro Sequence -->
+    <div id="intro-screen">
+        <div class="intro-title">DEADLINE<br>DEMON</div>
+        <div class="story-text">
+            <p>The serialization meeting was a success.</p>
+            <p>But the true battle begins now.</p>
+            <p>Defeat the Deadline Demon before Stress hits 50.</p>
+        </div>
+        <button class="btn" style="opacity:1; animation:none;" onclick="startBattle()">PICK UP THE PEN</button>
+    </div>
+
+    <!-- Gameplay UI -->
+    <div id="ui-header" style="display:none;">
+        <div class="stat-box player-stat">
+            <div class="stat-label">STRESS (Max 50)</div>
+            <div class="stat-value stress-text" id="player-stress">0</div>
+            <div class="stat-value block-text" id="player-block">BLOCK: 0</div>
+        </div>
+        
+        <div class="center-area">
+            <div class="title">MANGA BATTLE</div>
+            <button class="btn" id="end-turn-btn" onclick="endTurn()" style="font-size:16px; padding: 10px 15px; opacity:1; animation:none;">PUBLISH PAGE</button>
+        </div>
+
+        <div class="stat-box enemy-stat">
+            <div class="stat-label">DEADLINE HP</div>
+            <div class="stat-value hp-text" id="enemy-hp">70</div>
+            <div class="intent-text" id="enemy-intent">INTENTS</div>
+            <div id="boss-img-container">
+                <div id="boss-loading" class="flex-col-center">
+                    <div class="loader"></div>
+                    <div>SKETCHING</div>
+                </div>
+                <img id="boss-portrait" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container" style="display:none;">
+        <canvas id="gameCanvas"></canvas>
+        <div id="sfx-layer"></div>
+    </div>
+
+    <div id="overlay-screen">
+        <div class="manga-text" id="overlay-msg">GAME OVER</div>
+        <div id="cover-art-container" style="display:none; width: 200px; height: 200px; border: 4px solid #000; margin-bottom: 20px; background: #fff; position: relative; box-shadow: 4px 4px 0 var(--blue); transform: rotate(-2deg);">
+            <div id="cover-loading" style="position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-weight:bold;">INKING...</div>
+            <img id="cover-art" style="display:none; width:100%; height:100%; object-fit:cover;">
+        </div>
+        <div id="ai-review-box" style="display:none;"></div>
+        <button class="btn" onclick="startBattle()" style="opacity:1; animation:none; font-size:18px;">START NEW CHAPTER</button>
+    </div>
+
+    <!-- Producer UI -->
+    <div id="producer-container" style="display:none;">
+        <div id="producer-bubble"></div>
+        <div id="producer-sprite">
+            <div class="producer-glasses"></div>
+            <div class="producer-mustache"></div>
+            <div class="producer-sweat"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const sfxLayer = document.getElementById('sfx-layer');
+
+        // --- Gemini API Setup ✨ ---
+        const apiKey = ""; 
+        
+        async function fetchImageWithRetry(prompt) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+            const payload = { instances: { prompt: prompt }, parameters: { sampleCount: 1 } };
+            for (let i = 0; i < delays.length; i++) {
+                try {
+                    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    if (data.predictions && data.predictions[0] && data.predictions[0].bytesBase64Encoded) {
+                        return `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
+                    }
+                } catch (err) { if (i === delays.length - 1) return null; await new Promise(r => setTimeout(r, delays[i])); }
+            }
+            return null;
+        }
+
+        async function fetchGeminiWithRetry(prompt) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            for (let i = 0; i < delays.length; i++) {
+                try {
+                    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+                        return data.candidates[0].content.parts[0].text;
+                    }
+                } catch (err) { if (i === delays.length - 1) return null; await new Promise(r => setTimeout(r, delays[i])); }
+            }
+            return null;
+        }
+
+        // --- Game Data & State ---
+        const GRID_SIZE = 5; 
+        let CELL_SIZE = 0; let BOARD_OFFSET_Y = 20; let HAND_OFFSET_Y = 0; let dpr = window.devicePixelRatio || 1;
+        let patterns = [];
+
+        function createGrid(size) {
+            let g = [];
+            for (let i = 0; i < size; i++) {
+                let row = [];
+                for (let j = 0; j < size; j++) row.push(0);
+                g.push(row);
+            }
+            return g;
+        }
+
+        let grid = createGrid(GRID_SIZE);
+        let deck = []; let discard = []; let hand = [];
+        let playerStress = 0; let playerBlock = 0;
+        let enemyHp = 70; let turnCount = 1; let enemyIntentDmg = 8;
+        let isGameOver = false;
+
+        const CARDS = {
+            'action': { name: 'ACTION!', desc: '10 DMG', shape: [[1,1],[1,1]], pat: 0, type: 'atk', val: 10 },
+            'monologue': { name: 'MONOLOGUE', desc: '6 BLOCK', shape: [[1],[1],[1],[1]], pat: 1, type: 'def', val: 6 },
+            'filler': { name: 'FILLER', desc: '-5 STRESS', shape: [[1,1,1]], pat: 4, type: 'heal', val: 5 },
+            'twist': { name: 'PLOT TWIST', desc: '5 DMG, DRAW 1', shape: [[1,0],[1,1]], pat: 2, type: 'special', val: 5 },
+            'climax': { name: 'CLIMAX', desc: '16 DMG', shape: [[1,1,0],[0,1,1]], pat: 3, type: 'atk', val: 16 },
+            'flashback': { name: 'FLASHBACK', desc: '8 BLOCK', shape: [[1,1],[1,0]], pat: 1, type: 'def', val: 8 }
+        };
+
+        const INITIAL_DECK = ['action', 'action', 'action', 'action', 'monologue', 'monologue', 'monologue', 'flashback', 'filler', 'twist'];
+
+        let dragInfo = { active: false, shapeIndex: -1, cardObj: null, startX: 0, startY: 0, currentX: 0, currentY: 0, offsetX: 0, offsetY: 0 };
+
+        const PRODUCER_LINES = {
+            intro: ["WE NEED 50 PAGES BY TOMORROW!", "THE READERS ARE WAITING! DRAW!", "SLEEP IS FOR THE WEAK! WORK!"],
+            atk: ["EXPLOSIONS? IN A ROM-COM?!", "TOO MUCH INK! BUDGET IS RUINED!", "MORE ACTION! THE KIDS LOVE IT!"],
+            def: ["WHY IS HE MONOLOGUING?!", "SHOW, DON'T TELL! RE-DRAW IT!", "THIS PACING IS TOO SLOW!"],
+            heal: ["ARE YOU SLEEPING AT YOUR DESK?!", "FILLER?! THE FANS WILL RIOT!", "WAKE UP! DEADLINE IS LOOMING!"],
+            special: ["AMNESIA?! THAT'S A CHEAP TWIST!", "I DIDN'T APPROVE THIS SCRIPT!", "PLOT HOLE! MASSIVE PLOT HOLE!"],
+            win: ["WE SHIPPED IT! BARELY...", "NEXT CHAPTER DUE IN 3 DAYS!"],
+            lose: ["MISSED DEADLINE! WE'RE RUINED!", "I'M CANCELLING YOUR SERIES!"],
+            obstacle: ["I'M REJECTING THIS SCENE!", "RE-DRAW THIS, IT'S A MESS!", "EDITOR'S NOTES: SCRAP IT!"]
+        };
+        let producerTimer = null; let aiRequestCount = 0;
+
+        // --- Core Loops ---
+
+        function init() {
+            generateMangaPatterns(); resize(); window.addEventListener('resize', resize);
+            canvas.addEventListener('mousedown', handlePointerDown); canvas.addEventListener('mousemove', handlePointerMove); window.addEventListener('mouseup', handlePointerUp);
+            canvas.addEventListener('touchstart', handlePointerDown, {passive: false}); canvas.addEventListener('touchmove', handlePointerMove, {passive: false}); window.addEventListener('touchend', handlePointerUp);
+
+            fetchImageWithRetry("Highly detailed messy mangaka desk, incredibly cluttered with manga manuscript papers, ink bottles, G-pens, reference books, and figurines. Realistic studio photography style, cluttered room, warm lighting, overhead angle").then(imgUrl => {
+                const roomBg = document.getElementById('room-bg'); const roomBgLoading = document.getElementById('room-bg-loading');
+                if (imgUrl) { roomBg.style.backgroundImage = `url(${imgUrl})`; roomBg.style.backgroundSize = 'cover'; roomBg.style.backgroundPosition = 'center'; roomBgLoading.style.display = 'none'; } 
+                else { roomBgLoading.innerHTML = '<span style="color:red">Failed to render studio</span>'; }
+            });
+
+            document.getElementById('intro-screen').style.display = 'flex';
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startBattle() {
+            document.getElementById('intro-screen').style.display = 'none';
+            document.getElementById('overlay-screen').style.display = 'none';
+            document.getElementById('ui-header').style.display = 'flex';
+            document.getElementById('game-container').style.display = 'flex';
+            document.getElementById('producer-container').style.display = 'flex';
+            document.getElementById('end-turn-btn').disabled = false;
+
+            resize(); // Ensure canvas computes correctly
+
+            playerStress = 0; playerBlock = 0; enemyHp = 70; turnCount = 1; isGameOver = false;
+            deck = [...INITIAL_DECK]; shuffleArray(deck); discard = []; hand = [];
+            
+            const bossLoading = document.getElementById('boss-loading'); const bossPortrait = document.getElementById('boss-portrait');
+            bossLoading.style.display = 'flex'; bossPortrait.style.display = 'none';
+            bossLoading.innerHTML = '<div class="loader"></div><div>SKETCHING</div>';
+            
+            fetchImageWithRetry("Rough manga storyboard sketch, dynamic action comic panel, a terrifying abstract demon monster representing a deadline, black ink with red marker accents, sketchy lines, action-packed storyboard layout").then(imgUrl => {
+                if (imgUrl) { bossPortrait.src = imgUrl; bossPortrait.style.display = 'block'; bossLoading.style.display = 'none'; } 
+                else { bossLoading.innerHTML = '<div style="color:var(--red); font-weight:bold; font-size:12px; text-align:center;">DEADLINE<br>DEMON</div>'; }
+            });
+
+            showProducerReaction('intro');
+            startTurn();
+        }
+
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } }
+
+        function drawCards(amount) {
+            for (let i = 0; i < amount; i++) {
+                if (deck.length === 0) {
+                    if (discard.length === 0) return;
+                    deck = [...discard]; shuffleArray(deck); discard = [];
+                    spawnSFX(canvas.clientWidth/2, canvas.clientHeight/2, "SHUFFLE!");
+                }
+                const cardId = deck.pop();
+                hand.push({ id: cardId, def: CARDS[cardId], scale: 0.5, x: 0, y: 0 });
+            }
+        }
+
+        function startTurn() {
+            grid = createGrid(GRID_SIZE);
+            playerBlock = 0;
+            
+            // Spawn Editor Notes / Obstacles to increase difficulty
+            let numObstacles = Math.min(4, Math.floor(turnCount / 2)); 
+            let spawned = false;
+            for(let i=0; i<numObstacles; i++) {
+                let r = Math.floor(Math.random() * GRID_SIZE); let c = Math.floor(Math.random() * GRID_SIZE);
+                if (grid[r][c] === 0) { grid[r][c] = -1; spawned = true; }
+            }
+            if(spawned && turnCount > 1) showProducerReaction('obstacle');
+
+            enemyIntentDmg = 5 + Math.floor(turnCount * 2.5);
+            drawCards(4);
+            updateUI();
+        }
+
+        function endTurn() {
+            if (dragInfo.active || isGameOver) return;
+            
+            let actualDmg = Math.max(0, enemyIntentDmg - playerBlock);
+            if (enemyIntentDmg > 0) {
+                spawnBigSFX(actualDmg > 0 ? `DEADLINE HITS FOR ${actualDmg}!` : "BLOCKED!");
+                const bossImgContainer = document.getElementById('boss-img-container');
+                bossImgContainer.classList.add('boss-attacking');
+                setTimeout(() => bossImgContainer.classList.remove('boss-attacking'), 700);
+                if (actualDmg > 0) {
+                    document.body.classList.add('shake-active'); setTimeout(() => document.body.classList.remove('shake-active'), 500);
+                }
+            }
+            playerStress += actualDmg;
+
+            hand.forEach(card => discard.push(card.id)); hand = [];
+
+            if (playerStress >= 50) { gameOver(false); return; }
+
+            turnCount++;
+            setTimeout(() => { if(!isGameOver) startTurn(); }, 800);
+            updateUI(); draw();
+        }
+
+        function playCard(cardObj, gridPos) {
+            const def = cardObj.def.shape;
+            for (let r = 0; r < def.length; r++) {
+                for (let c = 0; c < def[r].length; c++) {
+                    if (def[r][c]) grid[gridPos.r + r][gridPos.c + c] = cardObj.def.pat + 1;
+                }
+            }
+
+            const cardData = cardObj.def;
+            let sfxText = ""; let sfxColor = "#e60012";
+            const bossImgContainer = document.getElementById('boss-img-container');
+
+            if (cardData.type === 'atk') {
+                enemyHp -= cardData.val; sfxText = `${cardData.val} DMG!`;
+                bossImgContainer.classList.add('boss-hurt'); setTimeout(() => bossImgContainer.classList.remove('boss-hurt'), 500);
+            } else if (cardData.type === 'def') {
+                playerBlock += cardData.val; sfxText = `+${cardData.val} BLK!`; sfxColor = "#00aaff";
+            } else if (cardData.type === 'heal') {
+                playerStress = Math.max(0, playerStress - cardData.val); sfxText = `RELAX!`; sfxColor = "#00aa00";
+            } else if (cardData.type === 'special') {
+                enemyHp -= cardData.val; drawCards(1); sfxText = `TWIST!`; sfxColor = "#ffaa00";
+                bossImgContainer.classList.add('boss-hurt'); setTimeout(() => bossImgContainer.classList.remove('boss-hurt'), 500);
+            }
+
+            const dropX = gridPos.c * CELL_SIZE + (def[0].length * CELL_SIZE)/2;
+            const dropY = BOARD_OFFSET_Y + gridPos.r * CELL_SIZE + (def.length * CELL_SIZE)/2;
+            spawnSFX(dropX, dropY, sfxText, sfxColor);
+
+            showProducerReaction(cardData.type, cardData);
+
+            hand.splice(dragInfo.shapeIndex, 1);
+            discard.push(cardObj.id);
+
+            updateUI();
+            if (enemyHp <= 0) gameOver(true);
+        }
+
+        function gameOver(win) {
+            isGameOver = true;
+            document.getElementById('end-turn-btn').disabled = true;
+            const overlay = document.getElementById('overlay-screen');
+            const msg = document.getElementById('overlay-msg');
+            const aiReview = document.getElementById('ai-review-box');
+            const coverContainer = document.getElementById('cover-art-container');
+            const coverLoading = document.getElementById('cover-loading');
+            const coverArt = document.getElementById('cover-art');
+            
+            overlay.style.display = 'flex';
+            aiReview.style.display = 'none';
+            coverContainer.style.display = 'none';
+
+            if (win) {
+                msg.innerHTML = "CHAPTER<br>PUBLISHED!"; msg.style.textShadow = "4px 4px 0 #000, 8px 8px 0 var(--blue)";
+                showProducerReaction('win');
+                
+                coverContainer.style.display = 'block'; coverLoading.style.display = 'block'; coverArt.style.display = 'none';
+                fetchImageWithRetry("Rough manga storyboard sketch, epic dynamic comic panel cover, a mangaka holding a glowing pen victoriously, black ink with red marker accents, sketchy lines, action-packed").then(imgUrl => {
+                    if (imgUrl) { coverArt.src = imgUrl; coverArt.style.display = 'block'; coverLoading.style.display = 'none'; } 
+                    else { coverContainer.style.display = 'none'; }
+                });
+            } else {
+                msg.innerHTML = "MISSED<br>DEADLINE!"; msg.style.textShadow = "4px 4px 0 #000, 8px 8px 0 var(--red)";
+                showProducerReaction('lose');
+            }
+
+            aiReview.style.display = 'block';
+            aiReview.innerHTML = `<em>Awaiting Editor's Review... ✨</em>`;
+            
+            const prompt = `You are a harsh but fair manga editor-in-chief. The artist just ${win ? 'MET their deadline and published an epic chapter' : 'MISSED their deadline and failed miserably'}. The boss (Deadline) had ${enemyHp} HP left, and the artist ended with ${playerStress}/50 stress. Write a funny, slightly dramatic 2-sentence editorial review of their work.`;
+            fetchGeminiWithRetry(prompt).then(aiText => {
+                if (aiText) aiReview.innerHTML = `<span style="color:#ff00ff;">✨ Editor's Review:</span><br>${aiText}`;
+                else aiReview.style.display = 'none';
+            });
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('player-stress').innerText = `${playerStress}/50`;
+            document.getElementById('player-block').innerText = `BLOCK: ${playerBlock}`;
+            document.getElementById('enemy-hp').innerText = Math.max(0, enemyHp);
+            document.getElementById('enemy-intent').innerText = `INTENT: ATK ${enemyIntentDmg}`;
+            draw();
+        }
+
+        // --- Interaction & Canvas Drawing ---
+        function getEventPos(e) {
+            const rect = canvas.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: (clientX - rect.left) * (canvas.clientWidth / rect.width), y: (clientY - rect.top) * (canvas.clientHeight / rect.height) };
+        }
+
+        function handlePointerDown(e) {
+            if (dragInfo.active || document.getElementById('game-container').style.display === 'none') return;
+            const pos = getEventPos(e);
+            const slotWidth = (canvas.width/dpr) / Math.max(hand.length, 4);
+
+            for (let i = 0; i < hand.length; i++) {
+                const card = hand[i];
+                if (!card || !card.def || !card.def.shape || !card.def.shape[0]) continue;
+                card.x = (i * slotWidth) + (slotWidth / 2); card.y = HAND_OFFSET_Y + CELL_SIZE * 1.5;
+                const pW = card.def.shape[0].length * CELL_SIZE * card.scale; const pH = card.def.shape.length * CELL_SIZE * card.scale;
+                if (pos.x >= card.x - pW/2 - 30 && pos.x <= card.x + pW/2 + 30 && pos.y >= card.y - pH/2 - 30 && pos.y <= card.y + pH/2 + 60) {
+                    e.preventDefault(); dragInfo.active = true; dragInfo.shapeIndex = i; dragInfo.cardObj = card;
+                    const touchOffsetY = e.touches ? -CELL_SIZE * 1.5 : 0;
+                    dragInfo.currentX = pos.x; dragInfo.currentY = pos.y + touchOffsetY;
+                    dragInfo.offsetX = pos.x - card.x; dragInfo.offsetY = (pos.y + touchOffsetY) - card.y; break;
+                }
+            }
+        }
+
+        function handlePointerMove(e) { if (!dragInfo.active) return; e.preventDefault(); const pos = getEventPos(e); dragInfo.currentX = pos.x - dragInfo.offsetX; dragInfo.currentY = pos.y - dragInfo.offsetY; }
+
+        function handlePointerUp(e) {
+            if (!dragInfo.active) return; e.preventDefault();
+            const gridPos = getGridHoverPos(); if (gridPos.valid) playCard(dragInfo.cardObj, gridPos);
+            dragInfo.active = false; dragInfo.shapeIndex = -1; draw();
+        }
+
+        function getGridHoverPos() {
+            if (!dragInfo.active || !dragInfo.cardObj || !dragInfo.cardObj.def) return { valid: false };
+            const def = dragInfo.cardObj.def.shape; 
+            if (!def || !def[0]) return { valid: false };
+            const pW = def[0].length * CELL_SIZE; const pH = def.length * CELL_SIZE;
+            const tX = dragInfo.currentX - pW / 2; const tY = dragInfo.currentY - pH / 2;
+            const c = Math.round(tX / CELL_SIZE); const r = Math.round((tY - BOARD_OFFSET_Y) / CELL_SIZE);
+            if (canPlaceShape(r, c, def)) return { valid: true, r, c }; return { valid: false };
+        }
+
+        function canPlaceShape(row, col, def) {
+            if (!def || !grid) return false;
+            for (let r = 0; r < def.length; r++) {
+                if (!def[r]) continue;
+                for (let c = 0; c < def[r].length; c++) {
+                    if (def[r][c]) {
+                        const gr = row + r; const gc = col + c;
+                        if (gr < 0 || gr >= GRID_SIZE || gc < 0 || gc >= GRID_SIZE || !grid[gr] || grid[gr][gc] !== 0) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function resize() {
+            const container = document.getElementById('game-container'); 
+            if (container.clientWidth === 0) return;
+            const w = container.clientWidth; const h = container.clientHeight;
+            CELL_SIZE = Math.floor(Math.min(w * 0.95 / GRID_SIZE, (h * 0.9) / (GRID_SIZE + 4)));
+            canvas.style.width = `${CELL_SIZE * GRID_SIZE}px`; canvas.style.height = `${CELL_SIZE * (GRID_SIZE + 4)}px`;
+            canvas.width = CELL_SIZE * GRID_SIZE * dpr; canvas.height = CELL_SIZE * (GRID_SIZE + 4) * dpr; ctx.scale(dpr, dpr);
+            BOARD_OFFSET_Y = 20; HAND_OFFSET_Y = BOARD_OFFSET_Y + (GRID_SIZE * CELL_SIZE) + 20; draw();
+        }
+
+        function generateMangaPatterns() {
+            patterns = []; const createPat = (w, h, drawFn) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const pCtx = c.getContext('2d'); pCtx.fillStyle = '#fff'; pCtx.fillRect(0,0,w,h); drawFn(pCtx); return ctx.createPattern(c, 'repeat'); };
+            patterns.push(createPat(4, 4, (p) => { p.fillStyle = '#000'; p.fillRect(0,0,2,2); })); // Action
+            patterns.push(createPat(6, 6, (p) => { p.strokeStyle = '#000'; p.beginPath(); p.moveTo(0,0); p.lineTo(0,6); p.stroke(); })); // Drama
+            patterns.push(createPat(8, 8, (p) => { p.strokeStyle = '#000'; p.beginPath(); p.moveTo(0,0); p.lineTo(8,8); p.moveTo(8,0); p.lineTo(0,8); p.stroke(); })); // Special
+            patterns.push(createPat(8, 8, (p) => { p.strokeStyle = '#000'; p.beginPath(); p.moveTo(0, 8); p.lineTo(8, 0); p.stroke(); })); // Climax
+            patterns.push(createPat(8, 8, (p) => { p.fillStyle = '#000'; p.fillRect(0,0,1,1); })); // Filler/Heal
+        }
+
+        function drawShapeOutline(ctx, def, oX, oY, s, patIdx, isShadow = false) {
+            if (!def || !def[0]) return;
+            const rows = def.length; const cols = def[0].length; ctx.save(); ctx.translate(oX, oY);
+            if (!isShadow) {
+                ctx.fillStyle = '#fff'; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(def[r] && def[r][c]) ctx.fillRect(c*s, r*s, s, s);
+                ctx.fillStyle = patterns[patIdx]; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(def[r] && def[r][c]) { ctx.save(); ctx.translate(c*s, r*s); ctx.fillRect(0,0,s,s); ctx.restore(); }
+            } else { ctx.fillStyle = 'rgba(0,0,0,0.2)'; for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) if(def[r] && def[r][c]) ctx.fillRect(c*s, r*s, s, s); }
+
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.lineJoin = 'miter'; ctx.beginPath();
+            for (let r=0;r<rows;r++) {
+                if (!def[r]) continue;
+                for (let c=0;c<cols;c++) {
+                    if (def[r][c]) {
+                        const x=c*s, y=r*s;
+                        if (r===0 || !def[r-1] || !def[r-1][c]) { ctx.moveTo(x,y); ctx.lineTo(x+s,y); } 
+                        if (r===rows-1 || !def[r+1] || !def[r+1][c]) { ctx.moveTo(x,y+s); ctx.lineTo(x+s,y+s); }
+                        if (c===0 || !def[r][c-1]) { ctx.moveTo(x,y); ctx.lineTo(x,y+s); } 
+                        if (c===cols-1 || !def[r][c+1]) { ctx.moveTo(x+s,y); ctx.lineTo(x+s,y+s); }
+                    }
+                }
+            }
+            ctx.stroke(); ctx.restore();
+        }
+
+        function drawObstacleCell(ctx, r, c) {
+            const s = CELL_SIZE; ctx.save(); ctx.translate(c * s, r * s);
+            ctx.fillStyle = '#ffeaea'; ctx.fillRect(0, 0, s, s);
+            ctx.strokeStyle = '#e60012'; ctx.lineWidth = 2; ctx.beginPath();
+            ctx.moveTo(s*0.1, s*0.2); ctx.lineTo(s*0.9, s*0.3); ctx.lineTo(s*0.2, s*0.5); ctx.lineTo(s*0.8, s*0.6); ctx.lineTo(s*0.1, s*0.8); ctx.lineTo(s*0.9, s*0.9); ctx.stroke();
+            ctx.font = `bold ${s*0.25}px Impact`; ctx.fillStyle = '#e60012'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.save(); ctx.translate(s/2, s/2); ctx.rotate(-0.2); ctx.fillText("REDO", 0, 0); ctx.restore();
+            ctx.strokeRect(2, 2, s-4, s-4); ctx.restore();
+        }
+
+        function drawRoomCell(ctx, r, c, val, time) {
+            const x = c * CELL_SIZE; const y = r * CELL_SIZE; const s = CELL_SIZE; const frame = Math.floor(time / 300) % 2;
+            ctx.save(); ctx.translate(x, y);
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, s, s); ctx.fillStyle = patterns[val - 1]; ctx.fillRect(0, 0, s, s);
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, s * 0.8); ctx.lineTo(s, s * 0.8); ctx.stroke();
+            ctx.fillStyle = '#000';
+
+            if (val === 1 || val === 4) { // Action/Climax (Typing)
+                ctx.fillRect(s*0.2, s*0.6, s*0.6, s*0.2); ctx.fillStyle = '#fff'; ctx.fillRect(s*0.25, s*0.65, s*0.5, s*0.1); ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(s*0.5, s*0.4, s*0.12, 0, Math.PI*2); ctx.fill(); ctx.fillRect(s*0.4, s*0.45, s*0.2, s*0.15);
+                ctx.lineWidth = 2; ctx.beginPath();
+                if(frame === 0) { ctx.moveTo(s*0.4, s*0.5); ctx.lineTo(s*0.25, s*0.6); ctx.moveTo(s*0.6, s*0.5); ctx.lineTo(s*0.75, s*0.65); } 
+                else { ctx.moveTo(s*0.4, s*0.5); ctx.lineTo(s*0.35, s*0.65); ctx.moveTo(s*0.6, s*0.5); ctx.lineTo(s*0.65, s*0.6); }
+                ctx.stroke();
+                if (frame === 0) { ctx.font = `bold ${s*0.3}px Arial`; ctx.fillText("!!", s*0.65, s*0.35); }
+            } 
+            else if (val === 2) { // Def (Thinking)
+                ctx.fillRect(s*0.2, s*0.6, s*0.6, s*0.2); ctx.beginPath(); ctx.arc(s*0.35, s*0.45, s*0.1, 0, Math.PI*2); ctx.fill();
+                ctx.fillRect(s*0.3, s*0.5, s*0.2, s*0.1); ctx.beginPath(); ctx.moveTo(s*0.4, s*0.5); ctx.lineTo(s*0.4, s*0.55); ctx.lineTo(s*0.35, s*0.45); ctx.stroke();
+                if (frame === 0) { ctx.font = `bold ${s*0.3}px Arial`; ctx.fillText("?", s*0.6, s*0.35); }
+            }
+            else if (val === 5) { // Heal (Sleeping)
+                ctx.fillRect(s*0.1, s*0.65, s*0.8, s*0.15); ctx.beginPath(); ctx.arc(s*0.25, s*0.65, s*0.1, 0, Math.PI*2); ctx.fill();
+                ctx.font = `bold ${s*0.25}px Arial`;
+                if (frame === 0) ctx.fillText("Z", s*0.5, s*0.5); else ctx.fillText("z", s*0.6, s*0.4);
+            }
+            else { ctx.fillRect(s*0.2, s*0.6, s*0.6, s*0.2); }
+            
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(0, 0, s, s); ctx.restore();
+        }
+
+        function drawBoard() {
+            if(document.getElementById('game-container').style.display === 'none') return;
+            ctx.clearRect(0, 0, canvas.width/dpr, canvas.height/dpr);
+            ctx.save(); ctx.translate(0, BOARD_OFFSET_Y);
+            ctx.fillStyle = '#fdfdfc'; ctx.fillRect(0, 0, GRID_SIZE * CELL_SIZE, GRID_SIZE * CELL_SIZE);
+            ctx.strokeStyle = '#aaddff'; ctx.lineWidth = 1; ctx.strokeRect(10, 10, GRID_SIZE * CELL_SIZE - 20, GRID_SIZE * CELL_SIZE - 20);
+            ctx.strokeStyle = '#ddd'; ctx.lineWidth = 2;
+            for (let i = 0; i <= GRID_SIZE; i++) { ctx.beginPath(); ctx.moveTo(i * CELL_SIZE, 0); ctx.lineTo(i * CELL_SIZE, GRID_SIZE * CELL_SIZE); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i * CELL_SIZE); ctx.lineTo(GRID_SIZE * CELL_SIZE, i * CELL_SIZE); ctx.stroke(); }
+            
+            const time = Date.now(); 
+            for (let r = 0; r < GRID_SIZE; r++) { 
+                if (!grid[r]) continue;
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (grid[r][c] > 0) drawRoomCell(ctx, r, c, grid[r][c], time);
+                    else if (grid[r][c] === -1) drawObstacleCell(ctx, r, c);
+            }}
+            ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.strokeRect(2, 2, GRID_SIZE * CELL_SIZE - 4, GRID_SIZE * CELL_SIZE - 4);
+            ctx.restore();
+        }
+
+        function drawHand() {
+            if(document.getElementById('game-container').style.display === 'none') return;
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Courier New'; ctx.textAlign = 'left'; ctx.fillText(`DECK: ${deck.length}`, 10, HAND_OFFSET_Y - 5); ctx.textAlign = 'right'; ctx.fillText(`DISCARD: ${discard.length}`, (canvas.width/dpr) - 10, HAND_OFFSET_Y - 5);
+            const slotWidth = (canvas.width/dpr) / Math.max(hand.length, 4);
+            hand.forEach((card, i) => {
+                if (dragInfo.active && dragInfo.shapeIndex === i) return;
+                if (!card || !card.def || !card.def.shape || !card.def.shape[0]) return; 
+                card.x = (i * slotWidth) + (slotWidth / 2); card.y = HAND_OFFSET_Y + CELL_SIZE * 1.5;
+                const oX = -(card.def.shape[0].length * CELL_SIZE * card.scale) / 2; const oY = -(card.def.shape.length * CELL_SIZE * card.scale) / 2;
+                ctx.save(); ctx.translate(card.x, card.y); ctx.rotate((i - (hand.length - 1) / 2) * 0.15);
+                drawShapeOutline(ctx, card.def.shape, oX, oY, CELL_SIZE * card.scale, card.def.pat, false);
+                ctx.textAlign = 'center'; ctx.font = 'bold 12px Courier New'; ctx.fillStyle = '#111'; ctx.fillText(card.def.name, 0, Math.abs(oY) + 15);
+                ctx.font = '11px Courier New'; ctx.fillStyle = card.def.type === 'atk' ? '#ff0000' : (card.def.type === 'def' ? '#00aaff' : '#00aa00');
+                ctx.fillText(card.def.desc, 0, Math.abs(oY) + 28); ctx.restore();
+            });
+        }
+
+        function drawDragging() {
+            if (!dragInfo.active || document.getElementById('game-container').style.display === 'none') return;
+            const def = dragInfo.cardObj.def.shape; const pW = def[0].length * CELL_SIZE; const pH = def.length * CELL_SIZE;
+            const gridPos = getGridHoverPos();
+            if (gridPos.valid) drawShapeOutline(ctx, def, gridPos.c * CELL_SIZE, BOARD_OFFSET_Y + gridPos.r * CELL_SIZE, CELL_SIZE, dragInfo.cardObj.def.pat, true);
+            
+            ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 15; ctx.shadowOffsetX = 10; ctx.shadowOffsetY = 10;
+            const ds = 1.1; drawShapeOutline(ctx, def, dragInfo.currentX - (pW*ds)/2, dragInfo.currentY - (pH*ds)/2, CELL_SIZE * ds, dragInfo.cardObj.def.pat, false); ctx.restore();
+        }
+
+        function draw() { drawBoard(); drawHand(); drawDragging(); }
+        function gameLoop() { draw(); requestAnimationFrame(gameLoop); }
+
+        function showProducerReaction(type, cardData = null) {
+            const lines = PRODUCER_LINES[type] || PRODUCER_LINES.atk;
+            const text = lines[Math.floor(Math.random() * lines.length)];
+            const bubble = document.getElementById('producer-bubble');
+            bubble.innerHTML = text; bubble.classList.add('show');
+            
+            const sprite = document.getElementById('producer-sprite');
+            sprite.style.transform = `translateY(-10px) rotate(${Math.random()*10 - 5}deg)`;
+            setTimeout(() => sprite.style.transform = 'translateY(0) rotate(0)', 150);
+            
+            if (producerTimer) clearTimeout(producerTimer);
+            producerTimer = setTimeout(() => bubble.classList.remove('show'), 3000);
+
+            if (apiKey && cardData && ['atk', 'def', 'heal', 'special'].includes(type)) {
+                const currentReq = ++aiRequestCount;
+                const prompt = `You are an aggressive, stressed manga publisher. Artist played '${cardData.name}'. Boss HP: ${enemyHp}, Artist Stress: ${playerStress}/50. Give 1-sentence angry/funny reaction in ALL CAPS. Max 10 words.`;
+                fetchGeminiWithRetry(prompt).then(aiText => {
+                    if (aiText && currentReq === aiRequestCount && bubble.classList.contains('show')) {
+                        bubble.innerHTML = `${aiText.trim()} <br><span style="font-size:10px; color:#ff00ff;">✨ AI</span>`;
+                        clearTimeout(producerTimer); producerTimer = setTimeout(() => bubble.classList.remove('show'), 3500);
+                    }
+                });
+            }
+        }
+
+        function spawnSFX(x, y, text, color = "#e60012") {
+            const sfx = document.createElement('div'); sfx.className = 'sfx-text'; sfx.innerText = text;
+            sfx.style.webkitTextStroke = `2px ${color === '#000' ? '#fff' : '#000'}`; sfx.style.color = color;
+            sfx.style.fontSize = `${20 + Math.random() * 10}px`; sfx.style.left = `${x}px`; sfx.style.top = `${y}px`;
+            sfx.style.transform = `translate(-50%, -50%) rotate(${Math.random()*20 - 10}deg)`; sfxLayer.appendChild(sfx);
+            setTimeout(() => sfx.remove(), 700);
+        }
+
+        function spawnBigSFX(text) {
+            const sfx = document.createElement('div'); sfx.className = 'sfx-text'; sfx.innerText = text;
+            sfx.style.webkitTextStroke = `4px #000`; sfx.style.color = '#fff'; sfx.style.fontSize = `40px`;
+            sfx.style.left = `50%`; sfx.style.top = `40%`; sfx.style.transform = `translate(-50%, -50%)`;
+            sfx.style.textShadow = `4px 4px 0px #e60012, 8px 8px 0px #000`; sfxLayer.appendChild(sfx);
+            setTimeout(() => sfx.remove(), 1000);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

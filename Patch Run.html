@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Bloom Garden</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Biến toàn cục ─────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --sky:#5B9BD5;--ground:#3D6B35;--panel:#FFFBF0;
+  --ink:#2C1810;--muted:#8B7355;--gold:#F5C842;
+  --shadow:rgba(44,24,16,0.25);
+}
+html,body{width:100%;height:100%;overflow:hidden}
+body{
+  font-family:'Nunito',sans-serif;
+  background:linear-gradient(180deg,#87CEEB 0%,#98D4F0 35%,#7CB87A 60%,#5A9A52 100%);
+  user-select:none;-webkit-user-select:none;touch-action:none;
+  display:flex;align-items:center;justify-content:center;
+  min-height:100dvh;
+}
+
+/* ── App shell ─────────────────────── */
+.app{
+  width:min(440px,100vw);
+  height:100dvh;
+  display:flex;flex-direction:column;
+  align-items:center;
+  padding:10px 12px 16px;
+  gap:8px;
+  position:relative;
+}
+
+/* Mây trang trí */
+.cloud{position:absolute;background:#fff;border-radius:50px;opacity:.7;pointer-events:none}
+.cloud::before,.cloud::after{content:'';position:absolute;background:#fff;border-radius:50%}
+.c1{width:80px;height:28px;top:8px;left:-10px}
+.c1::before{width:40px;height:40px;top:-18px;left:10px}
+.c1::after{width:28px;height:28px;top:-12px;left:36px}
+.c2{width:60px;height:22px;top:14px;right:20px}
+.c2::before{width:30px;height:30px;top:-14px;left:8px}
+.c2::after{width:22px;height:22px;top:-10px;left:28px}
+
+/* ── Thanh Topbar ────────────────────────── */
+.topbar{
+  width:100%;display:flex;align-items:center;justify-content:space-between;
+  position:relative;z-index:2;
+}
+.pill{
+  background:var(--panel);border-radius:999px;
+  border:2.5px solid var(--ink);
+  box-shadow:0 3px 0 var(--shadow);
+  padding:5px 14px;
+  font-family:'Fredoka One',cursive;
+  font-size:15px;color:var(--ink);
+  display:flex;align-items:center;gap:6px;
+}
+.pill.timer-pill .dot{
+  width:8px;height:8px;border-radius:50%;
+  background:#E84040;animation:blink 1s ease infinite;
+}
+@keyframes blink{50%{opacity:.3}}
+.level-chip{
+  background:var(--gold);
+  border:2.5px solid var(--ink);
+  border-radius:999px;
+  box-shadow:0 3px 0 var(--shadow);
+  padding:5px 16px;
+  font-family:'Fredoka One',cursive;
+  font-size:16px;color:var(--ink);
+}
+.btn-sm{
+  background:var(--panel);border:2.5px solid var(--ink);border-radius:999px;
+  box-shadow:0 3px 0 var(--shadow);
+  padding:5px 14px;
+  font-family:'Fredoka One',cursive;font-size:13px;color:var(--ink);
+  cursor:pointer;transition:transform 80ms,box-shadow 80ms;
+}
+.btn-sm:active{transform:translateY(2px);box-shadow:none}
+
+/* ── Lưới Canvas ──────────────────────── */
+.grid-card{
+  background:var(--panel);
+  border:3px solid var(--ink);
+  border-radius:20px;
+  box-shadow:0 5px 0 var(--shadow);
+  padding:8px;
+  width:100%;
+  aspect-ratio:1/1;
+  position:relative;
+  flex-shrink:0;
+}
+#cvs{width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+
+/* ── Nút điều khiển dưới ─────────────────── */
+.btn-row{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-action{
+  background:var(--panel);border:2.5px solid var(--ink);border-radius:14px;
+  box-shadow:0 4px 0 var(--shadow);
+  padding:11px;font-family:'Fredoka One',cursive;font-size:15px;color:var(--ink);
+  cursor:pointer;letter-spacing:.3px;transition:transform 80ms,box-shadow 80ms;
+}
+.btn-action:active{transform:translateY(3px);box-shadow:none}
+
+/* ── Chú giải & Ghi chú ─────────────────────────── */
+.legend{
+  width:100%;background:var(--panel);border:2px solid var(--ink);border-radius:14px;
+  box-shadow:0 3px 0 var(--shadow);padding:10px 14px;
+}
+.legend-title{font-family:'Fredoka One',cursive;font-size:13px;color:var(--muted);text-align:center;margin-bottom:8px}
+.legend-row{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px}
+.legend-item{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--ink)}
+.li-sq{width:13px;height:13px;background:#ccc;border:1.5px solid var(--ink);border-radius:3px;flex-shrink:0}
+.li-tl{width:8px;height:15px;background:#ccc;border:1.5px solid var(--ink);border-radius:2px;flex-shrink:0}
+.li-wd{width:17px;height:9px;background:#ccc;border:1.5px solid var(--ink);border-radius:2px;flex-shrink:0}
+.li-an{width:13px;height:13px;border:1.5px solid var(--ink);border-radius:3px;flex-shrink:0;
+  background:repeating-linear-gradient(45deg,#ccc 0 3px,#eee 3px 5px)}
+.li-rk{width:13px;height:13px;background:#888;border:1.5px solid #444;border-radius:50%;flex-shrink:0} /* Biểu tượng đá */
+
+/* ── Overlays (Win) ─────────────────────── */
+.overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.5);backdrop-filter:blur(6px);
+  z-index:200;align-items:center;justify-content:center;
+  padding:20px;
+}
+.overlay.open{display:flex;animation:fadeIn 200ms ease}
+@keyframes fadeIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+
+.win-card{
+  background:var(--panel);border:3px solid var(--ink);border-radius:24px;
+  box-shadow:0 8px 0 var(--shadow);
+  padding:28px 24px 24px;text-align:center;
+  width:min(340px,90vw);
+  position:relative;
+  overflow:hidden;
+}
+.win-flowers{font-size:52px;margin-bottom:6px;animation:pop 500ms cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{from{transform:scale(0) rotate(-20deg)}to{transform:scale(1) rotate(0)}}
+.win-title{font-family:'Fredoka One',cursive;font-size:28px;color:var(--ink);margin-bottom:4px; transition: color 0.3s}
+.win-sub{font-size:13px;color:var(--muted);font-weight:700;margin-bottom:14px}
+.win-time{
+  display:inline-flex;align-items:center;gap:6px;
+  background:#FFF5D6;border:2px solid var(--gold);border-radius:999px;
+  padding:6px 18px;font-family:'Fredoka One',cursive;font-size:16px;color:var(--ink);
+  margin-bottom:20px;
+}
+.win-btns{display:flex;gap:10px;justify-content:center; position:relative; z-index:2;}
+.wb{
+  border:2.5px solid var(--ink);border-radius:14px;
+  box-shadow:0 4px 0 var(--shadow);
+  padding:12px 22px;font-family:'Fredoka One',cursive;font-size:15px;
+  cursor:pointer;transition:transform 80ms,box-shadow 80ms;
+}
+.wb:active{transform:translateY(3px);box-shadow:none}
+.wb.primary{background:#5CB85C;color:#fff}
+.wb.secondary{background:var(--panel);color:var(--ink)}
+
+/* Hiệu ứng cầu vồng cho tiêu đề khi đột biến */
+.rainbow-text {
+  background-image: linear-gradient(to left, violet, indigo, blue, green, yellow, orange, red);
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: rainbow-anim 2s linear infinite;
+  background-size: 200% 200%;
+}
+@keyframes rainbow-anim { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+
+/* ── WORLD MAP (Cốt truyện) ───────────────────── */
+.sheet-bg{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(4px);
+  z-index:150;align-items:flex-end;justify-content:center;
+}
+.sheet-bg.open{display:flex;animation:slideUp 220ms ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+.sheet{
+  background:var(--panel);border:3px solid var(--ink);border-radius:20px 20px 0 0;
+  box-shadow:0 -4px 0 var(--shadow);
+  width:min(440px,100vw);height:85dvh;
+  display:flex; flex-direction:column;
+}
+.sheet-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 10px; border-bottom: 2px solid rgba(0,0,0,0.1);
+  background: var(--panel); border-radius:20px 20px 0 0;
+  z-index: 10;
+}
+.sheet-title{font-family:'Fredoka One',cursive;font-size:20px;color:var(--ink)}
+.sheet-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)}
+
+/* Vùng Map Cuộn */
+.map-container {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  position: relative;
+  background: #7CB87A; /* Màu cỏ */
+  background-image: radial-gradient(#6AA668 15%, transparent 16%);
+  background-size: 20px 20px;
+  padding-bottom: 40px;
+  padding-top: 40px;
+}
+.map-path-svg {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 1;
+}
+.map-node {
+  position: absolute;
+  width: 48px; height: 48px;
+  background: #C09858; /* Màu đất */
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Fredoka One', cursive; font-size: 16px; color: var(--panel);
+  z-index: 2; cursor: pointer;
+  box-shadow: 0 4px 0 var(--shadow), inset 0 3px 0 rgba(255,255,255,0.2);
+  transform: translateX(-50%);
+  transition: transform 0.1s;
+}
+.map-node:active { transform: translateX(-50%) translateY(3px); box-shadow: none; }
+.map-node.done { background: #5CB85C; }
+.map-node.cur { background: var(--gold); color: var(--ink); animation: pulse 1.5s infinite; }
+.map-node.locked { background: #888; color: #ccc; cursor: not-allowed; border-color: #555; }
+.node-flower {
+  position: absolute; top: -18px; right: -12px; font-size: 22px;
+  filter: drop-shadow(0 2px 0 rgba(0,0,0,0.3));
+}
+
+/* ── CUTSCENE MỞ ĐẦU ───────────────────── */
+.cutscene-overlay {
+  display: none; position: fixed; inset: 0;
+  background: #111; z-index: 300;
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 30px; text-align: center;
+  transition: background-color 1.5s ease;
+  user-select: none;
+  cursor: pointer;
+}
+.cutscene-overlay.open { display: flex; animation: fadeIn 500ms ease; }
+.cs-icon {
+  font-size: 70px; margin-bottom: 20px;
+  filter: drop-shadow(0 0 15px rgba(255,255,255,0.2));
+  transform: scale(0.8); opacity: 0; transition: all 0.8s cubic-bezier(.34,1.56,.64,1);
+}
+.cs-icon.active { transform: scale(1); opacity: 1; }
+.cs-text {
+  color: #fff; font-size: 18px; line-height: 1.6;
+  font-weight: 700; max-width: 400px;
+  opacity: 0; transform: translateY(20px); transition: all 0.8s ease;
+}
+.cs-text.active { opacity: 1; transform: translateY(0); }
+.cs-skip {
+  position: absolute; top: 20px; right: 20px;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
+  color: #fff; padding: 6px 12px; border-radius: 99px;
+  font-family: 'Fredoka One', cursive; font-size: 12px; cursor: pointer;
+  z-index: 301; backdrop-filter: blur(4px);
+}
+.cs-hint {
+  position: absolute; bottom: 30px;
+  color: rgba(255,255,255,0.4); font-size: 13px;
+  animation: blink 2s infinite; pointer-events: none;
+}
+/* Hiệu ứng rung nhẹ cho chữ cảnh AI */
+.glitch-text { animation: glitch-anim 3s infinite; }
+@keyframes glitch-anim {
+  0% { transform: translate(0) }
+  2% { transform: translate(-2px, 1px) }
+  4% { transform: translate(2px, -1px) }
+  6% { transform: translate(0) }
+  100% { transform: translate(0) }
+}
+</style>
+</head>
+<body>
+<!-- Cutscene Mở Đầu -->
+<div class="cutscene-overlay" id="cutscene-overlay">
+  <button class="cs-skip" id="btn-skip-intro">Bỏ qua</button>
+  <div class="cs-icon" id="cs-icon">🤖</div>
+  <div class="cs-text" id="cs-text">...</div>
+  <div class="cs-hint">Nhấn để tiếp tục</div>
+</div>
+
+<div class="app">
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+
+  <div class="topbar">
+    <div class="pill timer-pill"><span class="dot"></span><span id="timer">0:00</span></div>
+    <div class="level-chip">🌸 <span id="lv-num">1</span> <span style="opacity:.5;font-size:13px">/50</span></div>
+    <button class="btn-sm" id="btn-garden">Bản Đồ</button>
+  </div>
+
+  <div class="grid-card"><canvas id="cvs"></canvas></div>
+
+  <div class="btn-row">
+    <button class="btn-action" id="btn-undo">↶ Hoàn tác</button>
+    <button class="btn-action" id="btn-reset">🔄 Chơi lại</button>
+  </div>
+
+  <div class="legend">
+    <div class="legend-title">Kéo để trồng hoa · Số = diện tích mảng hoa</div>
+    <div class="legend-row">
+      <div class="legend-item"><span class="li-sq"></span>Hình Vuông</div>
+      <div class="legend-item"><span class="li-tl"></span>Chữ nhật Dọc</div>
+      <div class="legend-item"><span class="li-wd"></span>Chữ nhật Ngang</div>
+      <div class="legend-item"><span class="li-an"></span>Bất kỳ</div>
+      <div class="legend-item" style="grid-column: span 2; justify-content: center;"><span class="li-rk"></span>Đá Tảng (Không thể trồng đè lên)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Win modal -->
+<div class="overlay" id="win-overlay">
+  <div class="win-card" id="win-card-bg">
+    <div class="win-flowers" id="win-flowers">🌸🌻🌹</div>
+    <div class="win-title" id="win-title">Khu Vườn Nở Rộ!</div>
+    <div class="win-sub" id="win-sub">Mảnh vườn của bạn đã ngập tràn sắc hương ✨</div>
+    <div class="win-time">⏱ <span id="win-time-text">0:00</span></div>
+    <div class="win-btns">
+      <button class="wb secondary" id="btn-replay">Chơi lại</button>
+      <button class="wb primary" id="btn-next">Màn Tiếp →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bản Đồ Vườn (World Map) -->
+<div class="sheet-bg" id="sheet-bg">
+  <div class="sheet">
+    <div class="sheet-header">
+      <div class="sheet-title">🗺️ Vườn Thần Kì</div>
+      <button class="sheet-close" id="sheet-close">✕</button>
+    </div>
+    <div class="map-container" id="map-container">
+      <svg class="map-path-svg" id="map-path-svg"></svg>
+      <div id="map-nodes"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// HỆ THỰC VẬT & MÀU SẮC
+// ═══════════════════════════════════════════════════════
+const FLOWERS = [
+  {emoji:'🌹',name:'Hoa Hồng'},    {emoji:'🌸',name:'Hoa Anh Đào'},  {emoji:'🌻',name:'Hoa Hướng Dương'},
+  {emoji:'💙',name:'Hoa Diên Vĩ'}, {emoji:'🌿',name:'Cây Dương Xỉ'}, {emoji:'🪻',name:'Hoa Oải Hương'},
+  {emoji:'🌺',name:'Hoa Râm Bụt'}, {emoji:'🌼',name:'Hoa Cúc'},      {emoji:'🍀',name:'Cỏ Bốn Lá'},
+  {emoji:'🔔',name:'Hoa Chuông'},  {emoji:'🌷',name:'Hoa Tulip'},    {emoji:'🌾',name:'Bông Lúa'},
+  {emoji:'🍁',name:'Lá Phong'},    {emoji:'🌵',name:'Cây Xương Rồng'},{emoji:'🎋',name:'Cây Tre'},
+];
+
+const COLORS = {
+  red:'#E84040', orange:'#F07820', yellow:'#F0C020',
+  lime:'#70C020', green:'#30A850', teal:'#20A890',
+  cyan:'#20A8D0', blue:'#3878E8', indigo:'#6050D0',
+  purple:'#9040C0', pink:'#E040A0', rose:'#E85070',
+  coral:'#F06050', amber:'#E89020', sage:'#60A870',
+};
+const C = COLORS;
+
+// ═══════════════════════════════════════════════════════
+// KHAI BÁO CÁC MÀN CHƠI (Tích hợp Đá Tảng/Hazards)
+// ═══════════════════════════════════════════════════════
+function L(rects, hazards=[]){
+  let sz=0; 
+  rects.forEach(r=>{sz=Math.max(sz,r.x+r.w,r.y+r.h)});
+  hazards.forEach(h=>{sz=Math.max(sz, h.x+1, h.y+1)});
+  return{size:sz, hazards: hazards, shapes:rects.map((r,i)=>{
+    const nat=r.w===r.h?'S':r.w>r.h?'W':'T';
+    return{id:i+1,color:r.c,flowerIdx:i%FLOWERS.length,
+      sx:r.sx!==undefined?r.sx:r.x, sy:r.sy!==undefined?r.sy:r.y,
+      target:r.w*r.h, types:r.t||[nat], rect:{x:r.x,y:r.y,w:r.w,h:r.h}};
+  })};
+}
+
+const LEVELS=[
+L([{x:0,y:0,w:4,h:2,c:C.cyan,sx:2,sy:0},{x:0,y:2,w:4,h:2,c:C.lime,sx:1,sy:3}]), // Màn 1: Dễ
+// Màn 2: Giới thiệu Đá Tảng (Rock) - ĐÃ FIX LỖI LOGIC DIỆN TÍCH
+L([{x:0,y:0,w:2,h:2,c:C.red,sx:1,sy:0}, {x:2,y:0,w:2,h:3,c:C.yellow,sx:2,sy:1,t:['T']}, {x:0,y:2,w:2,h:3,c:C.blue,sx:0,sy:3,t:['T']}, {x:2,y:3,w:2,h:2,c:C.purple,sx:3,sy:4,t:['S']}], [{x:4,y:0,type:'rock'}, {x:4,y:1,type:'rock'}, {x:4,y:2,type:'rock'}, {x:4,y:3,type:'rock'}, {x:4,y:4,type:'rock'}]),
+L([{x:0,y:0,w:2,h:4,c:C.green,sx:0,sy:2},{x:2,y:0,w:2,h:2,c:C.orange,sx:3,sy:0},{x:2,y:2,w:2,h:2,c:C.pink,sx:2,sy:3}]),
+L([{x:0,y:0,w:1,h:4,c:C.red,sx:0,sy:2,t:['T']},{x:1,y:0,w:3,h:1,c:C.yellow,sx:2,sy:0,t:['W']},{x:1,y:1,w:2,h:2,c:C.cyan,sx:2,sy:2,t:['S']},{x:3,y:1,w:1,h:3,c:C.green,sx:3,sy:2,t:['T']},{x:1,y:3,w:2,h:1,c:C.purple,sx:1,sy:3,t:['W']}]),
+L([{x:0,y:0,w:2,h:2,c:C.red,sx:1,sy:0},{x:2,y:0,w:3,h:1,c:C.yellow,sx:3,sy:0,t:['W']},{x:2,y:1,w:2,h:2,c:C.cyan,sx:3,sy:2,t:['S']},{x:4,y:1,w:1,h:4,c:C.orange,sx:4,sy:3,t:['T']},{x:0,y:2,w:2,h:3,c:C.blue,sx:1,sy:4,t:['T']},{x:2,y:3,w:2,h:2,c:C.purple,sx:3,sy:4,t:['S']}]),
+L([{x:0,y:0,w:5,h:1,c:C.pink,sx:3,sy:0,t:['W']},{x:0,y:1,w:2,h:2,c:C.red,sx:1,sy:2,t:['S']},{x:3,y:1,w:2,h:2,c:C.lime,sx:4,sy:1,t:['S']},{x:0,y:3,w:3,h:2,c:C.cyan,sx:2,sy:4,t:['A']},{x:3,y:3,w:2,h:2,c:C.indigo,sx:4,sy:4,t:['S']}], [{x:2,y:1,type:'rock'},{x:2,y:2,type:'rock'}]),
+L([{x:0,y:0,w:2,h:2,c:C.red,sx:1,sy:0,t:['A']},{x:2,y:0,w:2,h:1,c:C.yellow,sx:3,sy:0,t:['W']},{x:4,y:0,w:1,h:3,c:C.orange,sx:4,sy:1,t:['T']},{x:2,y:1,w:2,h:2,c:C.lime,sx:3,sy:2,t:['A']},{x:0,y:2,w:2,h:3,c:C.blue,sx:0,sy:3,t:['A']},{x:2,y:3,w:2,h:2,c:C.purple,sx:3,sy:4,t:['A']},{x:4,y:3,w:1,h:2,c:C.pink,sx:4,sy:4,t:['T']}]),
+L([{x:0,y:0,w:3,h:2,c:C.teal,sx:1,sy:1,t:['W']},{x:3,y:0,w:2,h:3,c:C.red,sx:4,sy:1,t:['T']},{x:0,y:2,w:1,h:3,c:C.yellow,sx:0,sy:3,t:['T']},{x:1,y:2,w:2,h:2,c:C.blue,sx:2,sy:3,t:['S']},{x:3,y:3,w:2,h:2,c:C.purple,sx:4,sy:4,t:['S']},{x:1,y:4,w:2,h:1,c:C.lime,sx:2,sy:4,t:['W']}]),
+L([{x:0,y:0,w:2,h:3,c:C.coral,sx:1,sy:1,t:['T']},{x:2,y:0,w:3,h:2,c:C.yellow,sx:3,sy:1,t:['W']},{x:0,y:3,w:2,h:2,c:C.lime,sx:1,sy:4,t:['S']},{x:2,y:2,w:2,h:2,c:C.blue,sx:3,sy:3,t:['S']},{x:4,y:2,w:1,h:3,c:C.pink,sx:4,sy:3,t:['T']},{x:2,y:4,w:2,h:1,c:C.indigo,sx:3,sy:4,t:['W']}]),
+L([{x:0,y:0,w:5,h:2,c:C.cyan,sx:3,sy:1,t:['W']},{x:0,y:2,w:2,h:3,c:C.red,sx:1,sy:4,t:['T']},{x:2,y:2,w:3,h:3,c:C.yellow,sx:4,sy:3,t:['S']}]),
+L([{x:0,y:0,w:3,h:3,c:C.blue,sx:2,sy:1,t:['S']},{x:3,y:0,w:2,h:5,c:C.orange,sx:4,sy:3,t:['T']},{x:0,y:3,w:3,h:2,c:C.lime,sx:1,sy:4,t:['W']}]),
+L([{x:0,y:0,w:5,h:1,c:C.pink,sx:3,sy:0,t:['W']},{x:0,y:1,w:1,h:4,c:C.red,sx:0,sy:3,t:['T']},{x:1,y:1,w:3,h:2,c:C.yellow,sx:3,sy:2,t:['W']},{x:1,y:3,w:4,h:2,c:C.teal,sx:2,sy:4,t:['A']}], [{x:4,y:1,type:'rock'},{x:4,y:2,type:'rock'}]),
+L([{x:0,y:0,w:2,h:5,c:C.blue,sx:1,sy:3,t:['T']},{x:2,y:0,w:3,h:3,c:C.purple,sx:3,sy:1,t:['S']},{x:2,y:3,w:3,h:2,c:C.amber,sx:4,sy:4,t:['W']}]),
+L([{x:0,y:0,w:4,h:1,c:C.coral,sx:2,sy:0,t:['W']},{x:4,y:0,w:1,h:5,c:C.lime,sx:4,sy:3,t:['T']},{x:0,y:1,w:2,h:4,c:C.indigo,sx:1,sy:3,t:['A']},{x:2,y:1,w:2,h:2,c:C.yellow,sx:3,sy:2,t:['S']},{x:2,y:3,w:2,h:2,c:C.red,sx:3,sy:4,t:['S']}]),
+L([{x:0,y:0,w:1,h:5,c:C.amber,sx:0,sy:2,t:['T']},{x:1,y:0,w:4,h:2,c:C.cyan,sx:3,sy:1,t:['A']},{x:1,y:2,w:3,h:3,c:C.pink,sx:2,sy:3,t:['S']},{x:4,y:2,w:1,h:3,c:C.green,sx:4,sy:4,t:['T']}]),
+L([{x:0,y:0,w:2,h:2,c:C.blue,sx:1,sy:1,t:['S']},{x:2,y:0,w:3,h:2,c:C.yellow,sx:4,sy:1,t:['W']},{x:0,y:2,w:5,h:1,c:C.red,sx:2,sy:2,t:['W']},{x:0,y:3,w:3,h:2,c:C.teal,sx:1,sy:4,t:['A']},{x:3,y:3,w:2,h:2,c:C.purple,sx:4,sy:4,t:['S']}]),
+L([{x:0,y:0,w:3,h:1,c:C.lime,sx:2,sy:0,t:['W']},{x:3,y:0,w:2,h:3,c:C.red,sx:4,sy:2,t:['T']},{x:0,y:1,w:3,h:2,c:C.cyan,sx:1,sy:2,t:['W']},{x:0,y:3,w:2,h:2,c:C.orange,sx:1,sy:4,t:['S']},{x:2,y:3,w:3,h:2,c:C.indigo,sx:3,sy:4,t:['W']}]),
+L([{x:0,y:0,w:4,h:2,c:C.sage,sx:2,sy:1,t:['W']},{x:4,y:0,w:1,h:2,c:C.coral,sx:4,sy:1,t:['T']},{x:0,y:2,w:3,h:3,c:C.blue,sx:1,sy:3,t:['S']},{x:3,y:2,w:2,h:3,c:C.yellow,sx:4,sy:4,t:['T']}]),
+L([{x:0,y:0,w:1,h:3,c:C.amber,sx:0,sy:1,t:['T']},{x:1,y:0,w:2,h:2,c:C.pink,sx:2,sy:1,t:['S']},{x:3,y:0,w:2,h:3,c:C.lime,sx:4,sy:2,t:['T']},{x:1,y:2,w:2,h:3,c:C.blue,sx:2,sy:3,t:['A']},{x:0,y:3,w:1,h:2,c:C.red,sx:0,sy:4,t:['T']},{x:3,y:3,w:2,h:2,c:C.purple,sx:4,sy:4,t:['S']}]),
+L([{x:0,y:0,w:5,h:2,c:C.cyan,sx:3,sy:1,t:['W']},{x:0,y:2,w:2,h:3,c:C.orange,sx:1,sy:4,t:['T']},{x:2,y:2,w:3,h:2,c:C.yellow,sx:3,sy:3,t:['W']},{x:2,y:4,w:3,h:1,c:C.rose,sx:4,sy:4,t:['W']}]),
+];
+
+// ═══════════════════════════════════════════════════════
+// TRẠNG THÁI GAME & CANVAS
+// ═══════════════════════════════════════════════════════
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d');
+let CELL = 0;
+
+let G = {
+  lvIdx: 0, n: 0, shapes: [], hazards: [],
+  drag: null, history: [],
+  t0: 0, tEnd: 0, tid: null,
+  done: new Set(), mutated: false, animFrame: null,
+  hasSeenIntro: false
+};
+
+function save() { 
+  try { 
+    localStorage.setItem('bloom6', JSON.stringify({
+      done: [...G.done], 
+      lvIdx: G.lvIdx, 
+      hasSeenIntro: G.hasSeenIntro
+    })); 
+  } catch(e){} 
+}
+function loadSave() { 
+  try { 
+    const d=JSON.parse(localStorage.getItem('bloom6')||'{}'); 
+    G.done=new Set(d.done||[]); 
+    G.lvIdx=Math.min(d.lvIdx||0,LEVELS.length-1); 
+    G.hasSeenIntro = d.hasSeenIntro || false;
+  } catch(e){} 
+}
+
+// ═══════════════════════════════════════════════════════
+// HỆ THỐNG CUTSCENE (STORY)
+// ═══════════════════════════════════════════════════════
+const SCENES = [
+  { text: "Năm 2026...\nThế giới bị bao trùm bởi Kỷ Nguyên Máy Móc do AI kiểm soát.", bg: "#0d0d12", icon: "🤖", glitch: true },
+  { text: "Hệ sinh thái lụi tàn.\nNhững chú ong cuối cùng đang dần mất phương hướng...", bg: "#1c1a16", icon: "🥀", glitch: false },
+  { text: "Nhưng vẫn còn hy vọng.\nNhiệm vụ của bạn: Trồng lại những khu vườn rực rỡ nhất để gọi bầy ong trở về.", bg: "#2a3d24", icon: "🐝", glitch: false },
+  { text: "Sự sống của Trái Đất... nằm trong tay bạn.", bg: "#3D6B35", icon: "🌸", glitch: false }
+];
+let currentScene = 0;
+const cutsceneEl = document.getElementById('cutscene-overlay');
+const csIcon = document.getElementById('cs-icon');
+const csText = document.getElementById('cs-text');
+
+function renderScene() {
+  const scene = SCENES[currentScene];
+  
+  // Hiệu ứng Fade out nhẹ trước khi đổi nội dung
+  csIcon.classList.remove('active');
+  csText.classList.remove('active');
+  
+  setTimeout(() => {
+    cutsceneEl.style.backgroundColor = scene.bg;
+    csIcon.textContent = scene.icon;
+    csText.innerHTML = scene.text.replace(/\n/g, '<br>');
+    
+    if(scene.glitch) csText.classList.add('glitch-text');
+    else csText.classList.remove('glitch-text');
+
+    csIcon.classList.add('active');
+    csText.classList.add('active');
+  }, 400); // Đợi CSS transition fade out
+}
+
+function advanceCutscene() {
+  currentScene++;
+  if (currentScene >= SCENES.length) {
+    endCutscene();
+  } else {
+    renderScene();
+  }
+}
+
+function endCutscene() {
+  cutsceneEl.classList.remove('open');
+  G.hasSeenIntro = true;
+  save();
+  loadLevel(G.lvIdx);
+}
+
+document.getElementById('cutscene-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'btn-skip-intro') {
+    endCutscene();
+  } else {
+    advanceCutscene();
+  }
+});
+
+
+function loadLevel(i) {
+  G.lvIdx = i;
+  const lv = LEVELS[i];
+  G.n = lv.size;
+  G.shapes = lv.shapes.map(s => ({...s, placed:false, pr:null}));
+  G.hazards = lv.hazards || [];
+  G.history = []; G.drag = null;
+  G.t0 = Date.now(); G.tEnd = 0;
+  G.mutated = false;
+  if (G.animFrame) cancelAnimationFrame(G.animFrame);
+  
+  startTimer();
+  document.getElementById('lv-num').textContent = i+1;
+  document.getElementById('win-overlay').classList.remove('open');
+
+  resize(); draw();
+}
+
+function startTimer() {
+  if(G.tid) clearInterval(G.tid);
+  G.tid = setInterval(tickTimer, 500);
+  tickTimer();
+}
+function tickTimer() {
+  const s = Math.floor(((G.tEnd||Date.now()) - G.t0)/1000);
+  document.getElementById('timer').textContent = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+}
+
+function resize() {
+  const parentWidth = cvs.parentElement ? cvs.parentElement.clientWidth : window.innerWidth;
+  const sz = Math.max(0, parentWidth - 16); 
+  cvs.width = sz; cvs.height = sz; 
+  CELL = G.n > 0 ? sz / G.n : 0; 
+  if (CELL > 0) draw();
+}
+
+// ═══════════════════════════════════════════════════════
+// HÌNH ẢNH & KỸ XẢO
+// ═══════════════════════════════════════════════════════
+function hexToRgb(hex) {
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+}
+function lighten(hex, amt) {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgb(${Math.min(255,r+amt)},${Math.min(255,g+amt)},${Math.min(255,b+amt)})`;
+}
+function darken(hex, amt) {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgb(${Math.max(0,r-amt)},${Math.max(0,g-amt)},${Math.max(0,b-amt)})`;
+}
+function getRainbowColor(offset) {
+  const time = Date.now() * 0.002;
+  const r = Math.sin(time + offset) * 127 + 128;
+  const g = Math.sin(time + offset + 2) * 127 + 128;
+  const b = Math.sin(time + offset + 4) * 127 + 128;
+  return `rgb(${r},${g},${b})`;
+}
+
+function rr(x,y,w,h,r) {
+  if (w <= 0 || h <= 0) return; 
+  r = Math.max(0, Math.min(r, w/2, h/2)); 
+  
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+function drawShape(sh, isPreview, isValid) {
+  if (!sh.placed && !isPreview) return;
+  const r = isPreview ? sh : sh.pr;
+  if (!r) return;
+  const PAD = CELL * 0.055;
+  const px = r.x*CELL+PAD, py = r.y*CELL+PAD;
+  const pw = r.w*CELL-PAD*2, ph = r.h*CELL-PAD*2;
+  const RAD = CELL * 0.28;
+  
+  // Xử lý màu sắc đột biến
+  let col = isPreview ? (isValid ? '#4CAF50' : '#E84040') : sh.color;
+  if (G.mutated && !isPreview) {
+    col = getRainbowColor(sh.id);
+  }
+
+  if (isPreview) {
+    ctx.fillStyle = isValid ? 'rgba(76,175,80,0.18)' : 'rgba(232,64,64,0.18)';
+    rr(px,py,pw,ph,RAD); ctx.fill();
+    ctx.strokeStyle = isValid ? '#4CAF50' : '#E84040';
+    ctx.lineWidth = 2.5; ctx.setLineDash([6,4]);
+    rr(px,py,pw,ph,RAD); ctx.stroke();
+    ctx.setLineDash([]);
+    return;
+  }
+
+  // Đổ bóng (3D block)
+  ctx.fillStyle = G.mutated ? darken('#888888', 50) : darken(col, 50);
+  rr(px+2, py+4, pw, ph, RAD); ctx.fill();
+
+  // Khối chính
+  ctx.fillStyle = col;
+  rr(px,py,pw,ph,RAD); ctx.fill();
+
+  // Highlight sáng bên trên
+  const hl = ctx.createLinearGradient(px,py,px,py+ph*0.45);
+  hl.addColorStop(0,'rgba(255,255,255,0.32)');
+  hl.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle = hl;
+  rr(px,py,pw,ph*0.5,RAD); ctx.fill();
+
+  // Viền
+  ctx.strokeStyle = G.mutated ? '#fff' : darken(col, 60);
+  ctx.lineWidth = 2;
+  rr(px,py,pw,ph,RAD); ctx.stroke();
+}
+
+function drawHazards() {
+  G.hazards.forEach(hz => {
+    const PAD = CELL * 0.1;
+    const px = hz.x*CELL + PAD, py = hz.y*CELL + PAD;
+    const size = CELL - PAD*2;
+    
+    if (hz.type === 'rock') {
+      // Đá tảng
+      ctx.fillStyle = '#666'; // Bóng đá
+      ctx.beginPath(); ctx.arc(px + size/2 + 2, py + size/2 + 3, size/2 - 2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#999'; // Thân đá
+      ctx.beginPath(); ctx.arc(px + size/2, py + size/2, size/2 - 2, 0, Math.PI*2); ctx.fill();
+      // Highlight đá
+      ctx.fillStyle = '#bbb';
+      ctx.beginPath(); ctx.arc(px + size/2 - size*0.15, py + size/2 - size*0.15, size/4, 0, Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+function draw() {
+  const n=G.n, C=CELL, W=cvs.width;
+  ctx.clearRect(0,0,W,W);
+
+  // Background bàn cờ
+  ctx.fillStyle = '#F5F0E8';
+  rr(0,0,W,W,10); ctx.fill();
+
+  // Kẻ ô
+  ctx.strokeStyle = 'rgba(180,160,120,0.35)'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
+  for (let i=1;i<n;i++) {
+    ctx.beginPath(); ctx.moveTo(i*C,0); ctx.lineTo(i*C,W); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,i*C); ctx.lineTo(W,i*C); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  drawHazards();
+
+  // Các mảng hoa đã trồng
+  G.shapes.forEach(sh => drawShape(sh, false, false));
+
+  // Preview lúc kéo
+  if (G.drag) {
+    const pr = dragRect();
+    if (pr) drawShape(pr, true, isValidRect(pr));
+  }
+
+  // Vẽ Hạt giống (Số) lên trên cùng
+  G.shapes.forEach(sh => {
+    const px=(sh.sx+0.5)*C, py=(sh.sy+0.5)*C;
+    const PAD=C*0.1, bs=C-PAD*2, bx=sh.sx*C+PAD, by=sh.sy*C+PAD;
+    const RAD=C*0.22;
+
+    let sColor = G.mutated ? getRainbowColor(sh.id + 10) : sh.color;
+
+    // Hạt giống (Vuông)
+    ctx.fillStyle = darken(sColor, 55);
+    rr(bx+1,by+3,bs,bs,RAD); ctx.fill();
+    ctx.fillStyle = sColor;
+    rr(bx,by,bs,bs,RAD); ctx.fill();
+    // Inner shine
+    const sg = ctx.createLinearGradient(bx,by,bx,by+bs*0.5);
+    sg.addColorStop(0,'rgba(255,255,255,0.4)'); sg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle = sg; rr(bx,by,bs,bs*0.5,RAD); ctx.fill();
+
+    // Số
+    const fs = Math.max(14, Math.min(30, C*0.48));
+    ctx.fillStyle = '#fff';
+    ctx.font = `900 ${fs}px 'Fredoka One',cursive`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor='rgba(0,0,0,0.4)'; ctx.shadowBlur=4;
+    ctx.fillText(sh.target, px, py+1);
+    ctx.shadowBlur = 0;
+
+    // Emoji hoa nếu đã trồng
+    if (sh.placed) {
+      const f = FLOWERS[sh.flowerIdx];
+      const efs = Math.max(9,Math.min(15,C*0.28));
+      ctx.font = `${efs}px serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(f.emoji, (sh.sx+0.88)*C, (sh.sy+0.15)*C);
+    }
+  });
+
+  if (G.mutated) {
+    G.animFrame = requestAnimationFrame(draw);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// TƯƠNG TÁC (Kéo Thả)
+// ═══════════════════════════════════════════════════════
+function cellAt(cx,cy) {
+  const rect=cvs.getBoundingClientRect();
+  const x=Math.floor((cx-rect.left)/CELL), y=Math.floor((cy-rect.top)/CELL);
+  return (x<0||y<0||x>=G.n||y>=G.n) ? null : {x,y};
+}
+function dragRect() {
+  if (!G.drag) return null;
+  const a=G.drag.s, b=G.drag.c;
+  return {x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(a.x-b.x)+1,h:Math.abs(a.y-b.y)+1};
+}
+function isValidRect(r) {
+  // Chạm đá tảng?
+  if (G.hazards.some(hz => hz.x >= r.x && hz.x < r.x + r.w && hz.y >= r.y && hz.y < r.y + r.h)) return false;
+
+  const seeds = G.shapes.filter(s=>s.sx>=r.x&&s.sx<r.x+r.w&&s.sy>=r.y&&s.sy<r.y+r.h);
+  if (seeds.length!==1) return false;
+  const sh=seeds[0];
+  if (r.w*r.h!==sh.target) return false;
+  
+  if (!sh.types.includes('A')) {
+    if (r.w===r.h && !sh.types.includes('S')) return false;
+    if (r.h>r.w && !sh.types.includes('T')) return false;
+    if (r.w>r.h && !sh.types.includes('W')) return false;
+  }
+  for (const o of G.shapes) {
+    if (!o.placed||o.id===sh.id) continue;
+    const p=o.pr;
+    if (r.x<p.x+p.w&&r.x+r.w>p.x&&r.y<p.y+p.h&&r.y+r.h>p.y) return false;
+  }
+  return true;
+}
+function shapeAt(cx,cy) {
+  return G.shapes.find(s=>s.placed&&s.pr&&cx>=s.pr.x&&cx<s.pr.x+s.pr.w&&cy>=s.pr.y&&cy<s.pr.y+s.pr.h);
+}
+
+function onStart(cx,cy) {
+  if (G.tEnd) return;
+  const cell=cellAt(cx,cy); if (!cell) return;
+  const hit=shapeAt(cell.x,cell.y);
+  if (hit) {
+    G.history.push({id:hit.id, prev:{placed:true, pr:{...hit.pr}}});
+    hit.placed=false; hit.pr=null; draw(); return;
+  }
+  G.drag={s:cell,c:cell}; draw();
+}
+function onMove(cx,cy) {
+  if (!G.drag||G.tEnd) return;
+  const cell=cellAt(cx,cy); if (cell) G.drag.c=cell; draw();
+}
+function onEnd(cx,cy) {
+  if (!G.drag||G.tEnd) return;
+  const cell=cellAt(cx,cy); if (cell) G.drag.c=cell;
+  const r=dragRect(); G.drag=null;
+  if (r && isValidRect(r)) {
+    const sh=G.shapes.find(s=>s.sx>=r.x&&s.sx<r.x+r.w&&s.sy>=r.y&&s.sy<r.y+r.h);
+    if (sh) {
+      G.history.push({id:sh.id, prev:{placed:sh.placed, pr:sh.pr?{...sh.pr}:null}});
+      sh.placed=true; sh.pr={...r};
+      checkWin();
+    }
+  }
+  draw();
+}
+
+cvs.addEventListener('mousedown',e=>{e.preventDefault();onStart(e.clientX,e.clientY)});
+cvs.addEventListener('mousemove',e=>{if(G.drag)onMove(e.clientX,e.clientY)});
+window.addEventListener('mouseup',e=>{if(G.drag)onEnd(e.clientX,e.clientY)});
+cvs.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];onStart(t.clientX,t.clientY)},{passive:false});
+cvs.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches[0];onMove(t.clientX,t.clientY)},{passive:false});
+cvs.addEventListener('touchend',e=>{e.preventDefault();const t=e.changedTouches[0];onEnd(t.clientX,t.clientY)},{passive:false});
+
+// ═══════════════════════════════════════════════════════
+// KIỂM TRA THẮNG CẢNH (Cơ chế Đột biến)
+// ═══════════════════════════════════════════════════════
+function checkWin() {
+  if (G.shapes.some(s=>!s.placed)) return;
+  const grid=Array.from({length:G.n},()=>Array(G.n).fill(0));
+  
+  // Mark hazards
+  G.hazards.forEach(hz => { grid[hz.y][hz.x] = 1; });
+  // Mark shapes
+  G.shapes.forEach(sh=>{for(let y=sh.pr.y;y<sh.pr.y+sh.pr.h;y++)for(let x=sh.pr.x;x<sh.pr.x+sh.pr.w;x++)grid[y][x]++;});
+  
+  if (grid.some(row=>row.some(v=>v!==1))) return;
+
+  G.tEnd=Date.now(); tickTimer(); clearInterval(G.tid);
+  G.done.add(G.lvIdx); save();
+  
+  const timeTaken = G.tEnd - G.t0;
+  const s = Math.floor(timeTaken/1000);
+  document.getElementById('win-time-text').textContent=`${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+
+  const titleEl = document.getElementById('win-title');
+  const subEl = document.getElementById('win-sub');
+
+  // Kiểm tra điều kiện "Đột Biến Cầu Vồng" (Dưới 12s)
+  if (timeTaken <= 12000) {
+    G.mutated = true;
+    titleEl.textContent = "Đột Biến Cầu Vồng! 🌈";
+    titleEl.className = "win-title rainbow-text";
+    subEl.textContent = "Tốc độ thần sầu đã kích hoạt hoa thần thoại!";
+    draw(); // Start animation
+  } else {
+    titleEl.textContent = "Khu Vườn Nở Rộ!";
+    titleEl.className = "win-title";
+    subEl.textContent = "Mảnh vườn của bạn đã ngập tràn sắc hương!";
+  }
+
+  // Random emoji
+  const emojis=[...new Set(G.shapes.map(s=>FLOWERS[s.flowerIdx].emoji))].slice(0,4).join('');
+  document.getElementById('win-flowers').textContent = emojis;
+
+  setTimeout(()=>document.getElementById('win-overlay').classList.add('open'), 400);
+}
+
+// ═══════════════════════════════════════════════════════
+// UI & BẢN ĐỒ VƯỜN (World Map)
+// ═══════════════════════════════════════════════════════
+document.getElementById('btn-undo').addEventListener('click',()=>{
+  if (G.tEnd||!G.history.length) return;
+  const snap=G.history.pop();
+  const sh=G.shapes.find(s=>s.id===snap.id);
+  if (sh){sh.placed=snap.prev.placed; sh.pr=snap.prev.pr;} draw();
+});
+document.getElementById('btn-reset').addEventListener('click',()=>loadLevel(G.lvIdx));
+document.getElementById('btn-replay').addEventListener('click',()=>{
+  document.getElementById('win-overlay').classList.remove('open'); loadLevel(G.lvIdx);
+});
+document.getElementById('btn-next').addEventListener('click',()=>{
+  document.getElementById('win-overlay').classList.remove('open');
+  const nx=G.lvIdx+1; if(nx<LEVELS.length) loadLevel(nx); else openSheet();
+});
+document.getElementById('btn-garden').addEventListener('click',openSheet);
+document.getElementById('sheet-close').addEventListener('click',closeSheet);
+document.getElementById('sheet-bg').addEventListener('click',e=>{if(e.target.id==='sheet-bg')closeSheet();});
+window.addEventListener('resize',()=>resize());
+
+// Hàm Render Bản Đồ Vườn (Winding Path)
+function openSheet() {
+  const container = document.getElementById('map-container');
+  const svg = document.getElementById('map-path-svg');
+  const nodesWrapper = document.getElementById('map-nodes');
+  nodesWrapper.innerHTML = '';
+  
+  const NODE_SPACING = 80;
+  container.style.height = '60vh'; // Fixed viewing area
+
+  let svgPath = '';
+  let highestUnlocked = 0;
+  for(let i=0; i<LEVELS.length; i++) {
+    if(G.done.has(i) || G.done.has(i-1) || i===0) highestUnlocked = Math.max(highestUnlocked, i);
+  }
+
+  // Vẽ các Node từ dưới lên trên (Bottom to Top)
+  LEVELS.forEach((lv, i) => {
+    // Tính toán tọa độ zig-zag (hình sin)
+    const posX = 50 + Math.sin(i * 0.8) * 35; 
+    const posY = (LEVELS.length - 1 - i) * NODE_SPACING + 40;
+
+    // Vẽ nét đứt nối các đường
+    if (i === 0) svgPath += `M ${posX}% ${posY} `;
+    else svgPath += `L ${posX}% ${posY} `;
+
+    // Tạo Nút bấm (Node)
+    const btn = document.createElement('div');
+    btn.className = 'map-node';
+    btn.style.left = `${posX}%`;
+    btn.style.top = `${posY}px`;
+    btn.textContent = i + 1;
+
+    // Trạng thái Node
+    if (G.done.has(i)) {
+      btn.classList.add('done');
+      const flower = document.createElement('div');
+      flower.className = 'node-flower';
+      flower.textContent = FLOWERS[i % FLOWERS.length].emoji;
+      btn.appendChild(flower);
+    }
+    
+    if (i === G.lvIdx) {
+      btn.classList.add('cur');
+    }
+
+    if (i <= highestUnlocked) {
+      btn.onclick = () => { closeSheet(); loadLevel(i); };
+    } else {
+      btn.classList.add('locked');
+      btn.textContent = '🔒';
+    }
+
+    nodesWrapper.appendChild(btn);
+  });
+
+  // Thiết lập SVG Path
+  svg.innerHTML = `<path d="${svgPath}" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="6" stroke-dasharray="10 8" stroke-linecap="round" />`;
+  // Chỉnh chiều cao SVG
+  svg.style.height = `${LEVELS.length * NODE_SPACING + 100}px`;
+
+  document.getElementById('sheet-bg').classList.add('open');
+
+  // Cuộn tự động đến level hiện tại
+  setTimeout(() => {
+    const targetY = (LEVELS.length - 1 - G.lvIdx) * NODE_SPACING;
+    container.scrollTo({ top: targetY - 150, behavior: 'smooth' });
+  }, 50);
+}
+function closeSheet(){ document.getElementById('sheet-bg').classList.remove('open'); }
+
+// ── KHỞI ĐỘNG ──
+loadSave();
+if (!G.hasSeenIntro) {
+  document.getElementById('cutscene-overlay').classList.add('open');
+  // Delay chút xíu cho UI load xong rồi mới render text
+  setTimeout(renderScene, 100);
+} else {
+  loadLevel(G.lvIdx);
+}
+</script>
+</body>
+</html>
